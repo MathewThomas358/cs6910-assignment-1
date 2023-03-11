@@ -23,7 +23,7 @@ class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress',
 
 (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
 
-TRAIN_IMAGE_COUNT = 54000
+TRAIN_IMAGE_COUNT = 5400
 
 x_val = x_train[:6000]
 y_val = y_train[:6000]
@@ -33,6 +33,10 @@ y_train = y_train[:54000]
 x_train = x_train.reshape(x_train.shape[0], 784)
 x_val  = x_val.reshape(x_val.shape[0], 784)
 x_test = x_test.reshape(x_test.shape[0], 784)
+
+# x_train = x_train / 255.0 #TEST
+# x_test = x_test / 255.0#TEST
+# x_val  = x_val / 255.0 #TEST
 
 y_train = create_one_hot_vector(y_train)
 y_test = create_one_hot_vector(y_test)
@@ -56,7 +60,7 @@ def plot_images():
 
 def softmax(data):
     """Softmax function"""
-    # data = data - np.max(data)
+    # data = data - np.max(data) #TEST
     return np.exp(data) / np.sum(np.exp(data), axis=0)
 
 
@@ -89,8 +93,9 @@ class WeightsAndBiases:
     def add(self, gradients, eta: float):
         """Adds two Wbs"""
 
-        self.weights = self.weights + eta * gradients.diff_w
-        self.bias = self.bias + eta * gradients.diff_b
+        print(eta)
+        self.weights = self.weights - eta * gradients.diff_w
+        self.bias = self.bias - eta * gradients.diff_b
 
     def get_weight(self):
         """W"""
@@ -304,7 +309,7 @@ def back_propagation(layers, true_labels, weights_and_biases, sizes: LayerSizes,
 
     pred_labels = layers[sizes.no_of_hidden_layers + 1].h_activation
 
-    gradients[sizes.no_of_hidden_layers + 1].diff_a = -1 * (true_labels - pred_labels)  # TODO add case for mse
+    gradients[sizes.no_of_hidden_layers + 1].diff_a = pred_labels - true_labels # TODO add case for mse
 
     for i in range(sizes.no_of_hidden_layers + 1, 0, -1):  # From output to input
 
@@ -330,12 +335,11 @@ def sgd(activation_function: Callable, loss_function: Callable, epochs: int, siz
         arr = np.arange(TRAIN_IMAGE_COUNT)
         np.random.shuffle(arr)
 
+        print("Epoch: " + str(i))
         for j in range(TRAIN_IMAGE_COUNT):
             
-            print("Epoch: " + str(i) + " Image: " + str(j) + " Time: " + str(datetime.datetime.now().time()))
+            # print("Epoch: " + str(i) + " Image: " + str(j) + " Time: " + str(datetime.datetime.now().time()))
             x = x_train[arr[j],:]
-            # print(y_train)
-            # print(y_train[arr[j],:])
             y = y_train[arr[j],:]
 
             layers, _ = feed_forward_propagation(x, sizes.no_of_hidden_layers, weights_and_biases, activation_function)
@@ -352,33 +356,17 @@ def sgd(activation_function: Callable, loss_function: Callable, epochs: int, siz
 
     return weights_and_biases
 
-def test(a):
-    a[1] = 0
-
 if __name__ == "__main__":
-
-    # a = np.array([1,2,3])
-    # b = np.array([1,2,3])
-    # print(a)
 
     w_b = sgd(ActivationFunctions.sigmoid, LossFunctions.cross_entropy, 5, LayerSizes(28 * 28, 64, 10, 4), 0.5, None)
 
     count = 0
-    # print(x_val.shape)
-    # print(y_val.shape)
-    # print(x_val[1,:])
 
     for a in range(6000):
 
         _, y_pred = feed_forward_propagation(x_train[a,:], 4, w_b, ActivationFunctions.sigmoid)
-        # print((y_val[i,:]))
-        # print(y_val[i,:].shape)
-        # # y_pred = y_pred[:,]
-        # print((y_pred.flatten()))
-        # print(y_pred.flatten().shape)
-        # break
-        print((y_train[a,:] == y_pred.flatten()).all())
-        if (y_train[a,:] == y_pred.flatten()).all():       
+        
+        if (y_train[a,:] == y_pred.flatten()).all():
             count = count + 1
 
     print((count * 100)/ 6000)
