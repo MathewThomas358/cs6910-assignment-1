@@ -23,7 +23,7 @@ class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress',
 
 (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
 
-TRAIN_IMAGE_COUNT = 540
+TRAIN_IMAGE_COUNT = 5400
 
 x_val = x_train[:6000]
 y_val = y_train[:6000]
@@ -59,6 +59,8 @@ def plot_images():
 
 def softmax(data):
     """Softmax function"""
+    # import scipy
+    # return scipy.special.softmax(data)
     data = data - np.max(data) # To avoid overflow
     return np.exp(data) / np.sum(np.exp(data), axis=0)
 
@@ -110,24 +112,18 @@ def initialize_weights_biases(sizes: LayerSizes):
     # TODO , act_function_str: str, weight_init_type:str
     # TODO Relu cases with Xavier to be written
 
-    size = np.array([])
 
     weights_and_biases = np.empty(
         (sizes.no_of_hidden_layers + 2, ), dtype=object
     )
-
-    size = np.append(size, sizes.input_no_neurons)
-    for __ in range(sizes.no_of_hidden_layers):
-        size = np.append(size, sizes.hidden_no_neurons)
-    size = np.append(size, sizes.output_no_neurons)
 
     weights_and_biases[0] = None # No wb for input layer
 
     for i in range(1, sizes.no_of_hidden_layers + 2):
 
         webi = WeightsAndBiases(i)
-        webi.bias = np.random.randn(int(size[i]), 1)
-        webi.weights = np.random.randn(int(size[i]), int(size[i-1])) / 100
+        webi.bias = np.random.randn(int(sizes.sizes[i]), 1)
+        webi.weights = np.random.randn(int(sizes.sizes[i]), int(sizes.sizes[i-1])) / 100
 
         weights_and_biases[i] = webi
 
@@ -156,7 +152,7 @@ class ActivationFunctions:
         """sigmoid Activation Function"""
         # data = data - np.max(data)
         import scipy as sp
-        return sp.special.expit(data) # TEST Replace with tanh mod
+        return sp.special.expit(data) # pylint: disable=E1101 # TEST Replace with tanh mod 
         # return 1 / (1 + np.exp(-data))
 
     @staticmethod
@@ -169,13 +165,13 @@ class ActivationFunctions:
     def grad_fun(activation_function: Callable) -> Callable:
         """Maps activation functions to it's gradients"""
 
-        if activation_function == ActivationFunctions.sigmoid:
+        if activation_function == ActivationFunctions.sigmoid: # pylint: disable=W0143
             return Gradients.sigmoid
 
-        if activation_function == ActivationFunctions.relu:
+        if activation_function == ActivationFunctions.relu: # pylint: disable=W0143
             return Gradients.relu
 
-        if activation_function == ActivationFunctions.tanh:
+        if activation_function == ActivationFunctions.tanh: # pylint: disable=W0143
             return Gradients.tanh
 
 
@@ -215,7 +211,7 @@ class Gradients:
         self.diff_b = self.diff_b + grad.diff_b
 
 
-def initialize_gradients(sizes):
+def initialize_gradients(sizes: LayerSizes) -> np.ndarray[Gradients]:
     """Init Grads"""
 
     gradients = np.empty((sizes.no_of_hidden_layers + 2, ), dtype=object)
@@ -272,10 +268,10 @@ def feed_forward_propagation(data, no_of_h_layers, weights_and_biases, activatio
         layers[no_of_h_layers].h_activation
     ) + weights_and_biases[no_of_h_layers + 1].get_bias()
 
-    print("ACT", np.sum(layers[no_of_h_layers].h_activation))
+    # print("ACT", np.sum(layers[no_of_h_layers].h_activation))
     output_layer.h_activation = softmax(output_layer.a_pre_activation)
     layers[no_of_h_layers + 1] = (output_layer)
-    print("OP", np.round(output_layer.h_activation).flatten())
+    # print("OP", np.round(output_layer.h_activation).flatten())
 
     return layers, output_layer.h_activation
 
@@ -291,11 +287,18 @@ class LossFunctions:
         return np.mean((y - x)**2)  # TODO: Add regularizer?
 
     @staticmethod
-    def cross_entropy(x, y):
+    def cross_entropy(actual_label, pred_labels):
         """Cross entropy function"""
-        log_x = np.log(np.array(x).reshape(-1))
-        loss = -1 * np.array(y).reshape(-1) * log_x
-        return np.sum(loss)  # TODO: Add regularizer?
+        # log_x = np.log(np.array(pred_labels).reshape(-1))
+        # loss = np.array(actual_label).reshape(-1) * log_x
+        # return -np.sum(loss)  # TODO: Add regularizer?
+
+        # print(pred_labels.reshape(-1))
+        # print(np.log(pred_labels).reshape(-1))
+
+        pred_labels = pred_labels + 1e-64
+        return -np.sum(actual_label * np.log(pred_labels))
+        # return -np.sum(actual_label * np.log(pred_labels, out=np.zeros_like(pred_labels), where=(pred_labels != 0)))
 
 
 def back_propagation(layers, true_labels, weights_and_biases, sizes: LayerSizes, grad_activation_function: Callable, loss_function: Callable):
@@ -311,66 +314,91 @@ def back_propagation(layers, true_labels, weights_and_biases, sizes: LayerSizes,
     pred_labels = layers[sizes.no_of_hidden_layers + 1].h_activation
 
     gradients[sizes.no_of_hidden_layers + 1].diff_a = pred_labels - \
-        true_labels  # TODO add case for mse
+          true_labels  # TODO add case for mse
 
     for i in range(sizes.no_of_hidden_layers + 1, 0, -1):  # From output to input
 
         assert gradients[i].layer_id == i
         gradients[i].diff_w = np.dot(
-            gradients[i].diff_a, layers[i-1].h_activation.T)  # TODO Add l2 reg
+            gradients[i].diff_a, layers[i-1].h_activation.T)  + 0.4 * weights_and_biases[i].weights
         gradients[i].diff_b = gradients[i].diff_a
         gradients[i-1].diff_h = np.dot(weights_and_biases[i].weights.T,
                                        gradients[i].diff_a)
         gradients[i-1].diff_a = np.multiply(
-            gradients[i -
-                      1].diff_h, grad_activation_function(layers[i-1].a_pre_activation)
+            gradients[i - 1].diff_h, grad_activation_function(layers[i-1].a_pre_activation)
         )
 
     return gradients
 
 
-def gradient_descent(activation_function: Callable, loss_function: Callable, epochs: int, sizes: LayerSizes, eta: float, inti_weight: str):
+def gradient_descent(
+        activation_function: Callable,
+        loss_function: Callable,
+        epochs: int,
+        layer_sizes: LayerSizes,
+        eta: float,
+        inti_weight: str,
+        is_stochastic: bool = True
+    ):
     """Gradient Descent"""
 
-    weights_and_biases = initialize_weights_biases(sizes)
+    weights_and_biases = initialize_weights_biases(layer_sizes)
 
     for i in range(epochs):
 
-        gradients = initialize_gradients(sizes)
-        arr = np.arange(TRAIN_IMAGE_COUNT)
+        gradients = initialize_gradients(layer_sizes)
+        # arr = np.arange(TRAIN_IMAGE_COUNT)
         # np.random.shuffle(arr)
 
-        print("Epoch: " + str(i))
+        training_loss = 0 # TEST
+
+        print("Epoch: " + str(i), datetime.datetime.now().time())
         for j in range(TRAIN_IMAGE_COUNT):
 
-            x = x_train[arr[j], :]
-            y = y_train[arr[j], :]
+            # x = x_train[arr[j], :]
+            # y = y_train[arr[j], :]
+
+            x = x_train[j, :]
+            y = y_train[j, :]
 
             layers, _ = feed_forward_propagation(
-                x, sizes.no_of_hidden_layers, weights_and_biases, activation_function)
+                x, layer_sizes.no_of_hidden_layers, weights_and_biases, activation_function)
             gradients_curr = back_propagation(
-                layers, y, weights_and_biases, sizes, ActivationFunctions.grad_fun(activation_function), loss_function)
+                layers, y, weights_and_biases, layer_sizes, ActivationFunctions.grad_fun(activation_function), loss_function)
 
             gradients[0].diff_h = gradients[0].diff_h + \
                 gradients_curr[0].diff_h
             gradients[0].diff_a = gradients[0].diff_a + \
                 gradients_curr[0].diff_a
 
-            for k in range(1, sizes.no_of_hidden_layers + 2):
+            for k in range(1, layer_sizes.no_of_hidden_layers + 2):
                 gradients[k].add(gradients_curr[k])
 
-        for k in range(1, sizes.no_of_hidden_layers + 2):
-            assert weights_and_biases[k].id == k
-            weights_and_biases[k].add(gradients[k], eta)
+            if is_stochastic:
+                for k in range(1, layer_sizes.no_of_hidden_layers + 2):
+                    assert weights_and_biases[k].id == k
+                    weights_and_biases[k].add(gradients[k], eta)
+
+            _, pred = feed_forward_propagation(x, layer_sizes.no_of_hidden_layers, weights_and_biases, activation_function)
+            
+            training_loss =  training_loss + \
+                LossFunctions.cross_entropy(y, pred)
+
+        if not is_stochastic:
+            for k in range(1, layer_sizes.no_of_hidden_layers + 2):
+                    assert weights_and_biases[k].id == k
+                    weights_and_biases[k].add(gradients[k], eta)
+
+        print("Training Loss: ", training_loss/TRAIN_IMAGE_COUNT)
 
     return weights_and_biases
 
 
 if __name__ == "__main__":
 
-    sizes = LayerSizes(28 * 28, 128, 10, 5)
+    sizes = LayerSizes(28 * 28, 32, 10, 4)
     w_b = gradient_descent(ActivationFunctions.sigmoid, LossFunctions.cross_entropy,
-              5, sizes, 0.5, None)
+              10, sizes, 0.5, None, True)
     
     print("Training complete")
 
