@@ -5,16 +5,16 @@ Implementation of Feedforward Neural Network with Backpropagation
 @author: cs22m056
 '''
 
-from typing import Callable
+from typing import Callable, Any
 
 import datetime # TEST
 
 from keras.datasets import fashion_mnist
 
-from auxillary import create_one_hot_vector
-
 import numpy as np
 import wandb as wb
+
+from auxillary import create_one_hot_vector
 
 wb.init(project="cs6910-assignment-1")
 
@@ -122,9 +122,12 @@ def initialize_weights_biases(sizes: LayerSizes):
     for i in range(1, sizes.no_of_hidden_layers + 2):
 
         webi = WeightsAndBiases(i)
-        webi.bias = np.random.randn(int(sizes.sizes[i]), 1)
-        webi.weights = np.random.randn(int(sizes.sizes[i]), int(sizes.sizes[i-1])) / 100
-
+        # webi.bias = np.random.randn(int(sizes.sizes[i]), 1)
+        webi.bias = np.zeros((int(sizes.sizes[i]), 1)) # TEST Use above
+        # webi.weights = np.random.randn(int(sizes.sizes[i]), int(sizes.sizes[i-1])) / 100
+        webi.weights = np.random.uniform(size = (int(sizes.sizes[i]), int(sizes.sizes[i-1])))
+        # webi.weights = np.random.rand(int(sizes.sizes[i]), int(sizes.sizes[i-1])) * \
+                        # np.sqrt(2 / (int(sizes.sizes[i]) + int(sizes.sizes[i-1])))
         weights_and_biases[i] = webi
 
     return weights_and_biases
@@ -211,7 +214,7 @@ class Gradients:
         self.diff_b = self.diff_b + grad.diff_b
 
 
-def initialize_gradients(sizes: LayerSizes) -> np.ndarray[Gradients]:
+def initialize_gradients(sizes: LayerSizes) -> np.ndarray[Gradients, Any]:
     """Init Grads"""
 
     gradients = np.empty((sizes.no_of_hidden_layers + 2, ), dtype=object)
@@ -256,7 +259,7 @@ def feed_forward_propagation(data, no_of_h_layers, weights_and_biases, activatio
         _b = weights_and_biases[i].get_bias()
         h_prev = layers[i - 1].h_activation
 
-        layer.a_pre_activation = np.dot(_w, h_prev) + _b
+        layer.a_pre_activation = np.matmul(_w, h_prev) - _b
         layer.h_activation = activation_function(layer.a_pre_activation)
 
         layers[i] = layer
@@ -296,7 +299,7 @@ class LossFunctions:
         # print(pred_labels.reshape(-1))
         # print(np.log(pred_labels).reshape(-1))
 
-        pred_labels = pred_labels + 1e-64
+        pred_labels = pred_labels + 1e-9
         return -np.sum(actual_label * np.log(pred_labels))
         # return -np.sum(actual_label * np.log(pred_labels, out=np.zeros_like(pred_labels), where=(pred_labels != 0)))
 
@@ -313,20 +316,30 @@ def back_propagation(layers, true_labels, weights_and_biases, sizes: LayerSizes,
 
     pred_labels = layers[sizes.no_of_hidden_layers + 1].h_activation
 
-    gradients[sizes.no_of_hidden_layers + 1].diff_a = pred_labels - \
-          true_labels  # TODO add case for mse
+    gradients[sizes.no_of_hidden_layers + 1].diff_a = -true_labels / (pred_labels + 1e-64)
+    
+    # gradients[sizes.no_of_hidden_layers + 1].diff_a = pred_labels - \
+        #   true_labels  # TODO add case for mse
+
+    
+    # print("BP:", pred_labels.flatten(), true_labels.flatten())
 
     for i in range(sizes.no_of_hidden_layers + 1, 0, -1):  # From output to input
 
         assert gradients[i].layer_id == i
         gradients[i].diff_w = np.dot(
-            gradients[i].diff_a, layers[i-1].h_activation.T)  + 0.4 * weights_and_biases[i].weights
+            gradients[i].diff_a, layers[i-1].h_activation.T)  + 0.005 * weights_and_biases[i].weights
+
+        # gradients[i].diff_b = np.sum(gradients[i].diff_a)
         gradients[i].diff_b = gradients[i].diff_a
         gradients[i-1].diff_h = np.dot(weights_and_biases[i].weights.T,
                                        gradients[i].diff_a)
         gradients[i-1].diff_a = np.multiply(
             gradients[i - 1].diff_h, grad_activation_function(layers[i-1].a_pre_activation)
         )
+        # gradients[i].diff_w = np.dot(gradients[i].diff_a, layers[i-1].h_activation.T) + 0.5 * weights_and_biases[i].weights
+        # gradients[i].diff_b = np.sum(gradients[i].diff_a)
+        # gradients[i-1].diff_a = np.matmul(weights_and_biases[i].weights.T, gradients[i].diff_a) * grad_activation_function(layers[i-1].a_pre_activation)
 
     return gradients
 
@@ -338,28 +351,35 @@ def gradient_descent(
         layer_sizes: LayerSizes,
         eta: float,
         inti_weight: str,
-        is_stochastic: bool = True
+        is_stochastic: bool = True,
+        is_batch: bool = True,
+        batch_size: int = 64
     ):
     """Gradient Descent"""
 
     weights_and_biases = initialize_weights_biases(layer_sizes)
+    gradients = initialize_gradients(layer_sizes)
 
     for i in range(epochs):
 
-        gradients = initialize_gradients(layer_sizes)
-        # arr = np.arange(TRAIN_IMAGE_COUNT)
-        # np.random.shuffle(arr)
+        arr = np.arange(TRAIN_IMAGE_COUNT)
+        np.random.shuffle(arr)
 
         training_loss = 0 # TEST
+        # count = 0
 
         print("Epoch: " + str(i), datetime.datetime.now().time())
         for j in range(TRAIN_IMAGE_COUNT):
 
-            # x = x_train[arr[j], :]
-            # y = y_train[arr[j], :]
-
-            x = x_train[j, :]
-            y = y_train[j, :]
+            # print("Testing Image: ", j)
+            # count = count + 1
+            x = x_train[arr[j], :]
+            y = y_train[arr[j], :]
+            print(y.shape)
+            import time
+            time.sleep(10)
+            # x = x_train[j, :]
+            # y = y_train[j, :]
 
             layers, _ = feed_forward_propagation(
                 x, layer_sizes.no_of_hidden_layers, weights_and_biases, activation_function)
@@ -374,31 +394,48 @@ def gradient_descent(
             for k in range(1, layer_sizes.no_of_hidden_layers + 2):
                 gradients[k].add(gradients_curr[k])
 
-            if is_stochastic:
-                for k in range(1, layer_sizes.no_of_hidden_layers + 2):
-                    assert weights_and_biases[k].id == k
-                    weights_and_biases[k].add(gradients[k], eta)
-
+                
             _, pred = feed_forward_propagation(x, layer_sizes.no_of_hidden_layers, weights_and_biases, activation_function)
             
             training_loss =  training_loss + \
                 LossFunctions.cross_entropy(y, pred)
 
-        if not is_stochastic:
-            for k in range(1, layer_sizes.no_of_hidden_layers + 2):
+            # if count % 64 == 0: # TEST Stochastic With MiniBatch
+            #     for k in range(1, layer_sizes.no_of_hidden_layers + 2):
+            #         weights_and_biases[k].add(gradients[k], eta)
+            #         gradients = initialize_gradients(layer_sizes)
+
+
+            if is_stochastic:
+                for k in range(1, layer_sizes.no_of_hidden_layers + 2):
                     assert weights_and_biases[k].id == k
                     weights_and_biases[k].add(gradients[k], eta)
+
+            # if is_batch and count % batch_size == 0:
+            #     for k in range(1, layer_sizes.no_of_hidden_layers + 2):
+            #         assert weights_and_biases[k].id == k
+            #         weights_and_biases[k].add(gradients[k], eta)
+
+
+        if not is_stochastic:
+            for k in range(1, layer_sizes.no_of_hidden_layers + 2):
+                assert weights_and_biases[k].id == k
+                weights_and_biases[k].add(gradients[k], eta)
 
         print("Training Loss: ", training_loss/TRAIN_IMAGE_COUNT)
 
     return weights_and_biases
 
+def test():
+
+    lis = []
+    return lis
 
 if __name__ == "__main__":
 
-    sizes = LayerSizes(28 * 28, 32, 10, 4)
+    sizes = LayerSizes(28 * 28, 128, 10, 5)
     w_b = gradient_descent(ActivationFunctions.sigmoid, LossFunctions.cross_entropy,
-              10, sizes, 0.5, None, True)
+              1500, sizes, 0.001, None, False)
     
     print("Training complete")
 
