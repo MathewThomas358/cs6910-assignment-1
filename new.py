@@ -6,20 +6,17 @@ Meta
 
 from typing import Callable, Any
 
-import datetime #TEST
-
 from keras.datasets import fashion_mnist
 
 import numpy as np
 
 from auxillary import create_one_hot_vector
 
-def t():
-    import time
-    time.sleep(100)
-
 RANDOM = "random"
 XAVIER = "xavier"
+
+from functools import partial #TEST
+print = partial(print, flush=True) #TEST
 
 class Layer:
     """Layer"""
@@ -36,10 +33,18 @@ class Layer:
         self.grad_loss_w = None
         self.grad_loss_b = None
 
-    def update(self, eta:float) -> None:
+        self.v_weights = None
+        self.v_biases = None
+
+    def update(self, eta: float, gamma: float = 0) -> None:
         """Update"""
-        self.weights = self.weights - eta * self.grad_loss_w
-        self.biases = self.biases - eta * self.grad_loss_b
+
+        weight_update = eta * self.grad_loss_w + gamma * self.v_weights
+        bias_update = eta * self.grad_loss_b + gamma * self.v_biases
+        self.weights = self.weights - weight_update
+        self.biases = self.biases - bias_update
+        self.v_biases = bias_update
+        self.v_weights = weight_update
 
     def reset_grads(self):
         """Reset values"""
@@ -141,7 +146,12 @@ class Optimizers:
         learning_rate: float = None,
         x: np.ndarray = None, # pylint: disable=C0103
         y: np.ndarray = None, # pylint: disable=C0103
-        batch_size: int = None
+        batch_size: int = None,
+        gamma: float = None,
+        epsilon: float = None,
+        beta: float = None,
+        beta2: float = None,
+        training_set_size: int = None
     ):
         assert epochs is not None, ""
         assert activation_function is not None, ""
@@ -159,10 +169,20 @@ class Optimizers:
         self.x_train = x
         self.y_train = y
 
+        self.gamma = gamma
+        self.beta = beta
+        self.eps = epsilon
+        self.beta_two = beta2
+
         if batch_size is None:
-            self.batch_size = x.shape[0]
+            self.batch_size = 1
         else:
             self.batch_size = batch_size
+
+        if training_set_size is None:
+            self.training_set_size = self.x_train.shape[0]
+        else:
+            self.training_set_size = training_set_size
 
     def gradient_descent(
             self,
@@ -172,15 +192,70 @@ class Optimizers:
             is_stochastic: bool = True
         ):
         """SGD and Vanilla GD"""
+
+        assert self.gamma is None, "Gamma value given"
         
         for j in range(self.epochs):
 
             training_loss = 0
+            points_covered = 0
             
             arr = np.arange(self.x_train.shape[0])
             np.random.shuffle(arr)
 
-            for i in range(self.batch_size):
+            for i in range(self.training_set_size):
+
+                points_covered += 1
+                x_train_point = self.x_train[arr[i],:]
+                y_train_label = self.y_train[arr[i],:]
+
+                network[0].activation_h = np.expand_dims(x_train_point, axis=1)
+
+                _, y_pred = forward_propagation(network, self.activation_function, self.output_function, False)
+
+                training_loss += self.loss_function(y_pred, y_train_label)
+
+                back_propagation(
+                    network, y_pred, y_train_label,
+                    Functions.get_grad(self.loss_function),
+                    Functions.get_grad(self.activation_function)
+                )
+
+                if is_stochastic and points_covered == self.batch_size:
+                    for i in range(1, network.shape[0]):
+                        network[i].update(self.eta)
+                    self.__reset_grads_in_network(network)
+                    points_covered = 0
+
+            if not is_stochastic:
+                for i in range(1, network.shape[0]):
+                    network[i].update(self.eta)
+                self.__reset_grads_in_network(network)
+
+            print("Epoch", j, "Training Loss:",  training_loss / self.training_set_size)
+
+    def momentum_gradient_descent(
+            self,
+            network: list[Layer],
+            forward_propagation: Callable,
+            back_propagation: Callable,
+            is_stochastic: bool = True
+        ):
+        """MGD"""
+        
+        assert self.gamma is not None, "gamma not provided"
+
+        for j in range(self.epochs):
+
+            training_loss = 0
+            points_covered = 0
+            
+            arr = np.arange(self.x_train.shape[0])
+            np.random.shuffle(arr)
+
+            for i in range(self.training_set_size):
+
+                points_covered += 1
 
                 x_train_point = self.x_train[arr[i],:]
                 y_train_label = self.y_train[arr[i],:]
@@ -197,20 +272,99 @@ class Optimizers:
                     Functions.get_grad(self.activation_function)
                 )
 
-                if is_stochastic:
+                if is_stochastic and points_covered == self.batch_size:
                     for i in range(1, network.shape[0]):
-                        network[i].update(self.eta)
+                        network[i].update(self.eta, self.gamma)
                     self.__reset_grads_in_network(network)
+                    points_covered = 0
 
             if not is_stochastic:
                 for i in range(1, network.shape[0]):
-                    network[i].update(self.eta)
+                    network[i].update(self.eta, self.gamma)
+                self.__reset_grads_in_network(network)
+
+            print("Epoch", j, "Training Loss:",  training_loss / self.training_set_size)
+
+    def nesterov_gradient_descent(
+            self,
+            network: list[Layer],
+            forward_propagation: Callable,
+            back_propagation: Callable,
+            is_stochastic: bool = True
+    ):
+        """NGD"""
+
+        assert self.gamma is not None, "gamma not provided"
+
+        for j in range(self.epochs):
+
+            training_loss = 0
+            points_covered = 0
+
+            arr = np.arange(self.x_train.shape[0])
+            np.random.shuffle(arr)
+
+            for i in range(self.training_set_size):
+
+                points_covered += 1
+
+                x_train_point = self.x_train[arr[i],:]
+                y_train_label = self.y_train[arr[i],:]
+
+                network[0].activation_h = np.expand_dims(x_train_point, axis=1)
+
+                _, y_pred = forward_propagation(
+                    network,
+                    self.activation_function,
+                    self.output_function,
+                    False
+                )
+
+                training_loss += self.loss_function(y_pred, y_train_label)
+
+                network[i].weights = self.gamma * network[i].v_weights
+                network[i].biases = self.gamma * network[i].v_biases
+
+                back_propagation(
+                    network, y_pred, y_train_label,
+                    Functions.get_grad(self.loss_function),
+                    Functions.get_grad(self.activation_function)
+                )
+
+                if is_stochastic and points_covered == self.batch_size:
+                    for i in range(1, network.shape[0]):
+                        network[i].update(self.eta, self.gamma)
                     self.__reset_grads_in_network(network)
+                    points_covered = 0
 
-            print("Epoch", j, "Training Loss:",  training_loss / self.batch_size)
+            if not is_stochastic:
+                for i in range(1, network.shape[0]):
+                    network[i].update(self.eta, self.gamma)
+                self.__reset_grads_in_network(network)
 
-    def momentum_gradient_descent(self):
-        pass
+            print("Epoch", j, "Training Loss:",  training_loss / self.training_set_size)
+
+    def rmsprop(
+            self,
+            network: list[Layer],
+            forward_propagation: Callable,
+            back_propagation: Callable
+    ):
+        """RMSProp"""
+        
+        assert self.eps is not None, "Epsilon not provided"
+        assert self.beta is not None, "Beta not provided"
+
+    def adam(
+            self,
+            network: list[Layer],
+            forward_propagation: Callable,
+            back_propagation: Callable
+    ):
+        """Adam"""
+        assert self.eps is not None, "Epsilon not provided"
+        assert self.beta is not None, "Beta not provided"
+        assert self.beta_two is not None, "Beta 2 not provided"
 
     def __reset_grads_in_network(self, network: np.ndarray[Layer, Any]):
 
@@ -273,6 +427,9 @@ class NeuralNetwork:
             layer.grad_loss_h = np.zeros((self.sizes[i], 1), dtype=np.float64)
             layer.grad_loss_b = np.zeros((self.sizes[i], 1), dtype=np.float64)
             layer.grad_loss_w = np.zeros((self.sizes[i], self.sizes[i-1]), dtype=np.float64)
+
+            layer.v_biases = np.zeros((self.sizes[i], 1), dtype=np.float64)
+            layer.v_weights = np.zeros((self.sizes[i], self.sizes[i-1]), dtype=np.float64)
 
             self.network[i] = layer
 
@@ -360,7 +517,7 @@ class NeuralNetwork:
             layers[i].grad_loss_w += np.dot(
                 layers[i].grad_loss_a,
                 layers[i-1].activation_h.T
-            ) + self.reg_param * layers[i].weights # TODO: Add regparam factor in computing the loss
+            ) #+ self.reg_param * layers[i].weights # TODO: Add regparam factor in computing the loss
             
             assert layers[i].grad_loss_w is not None, i
 
@@ -475,41 +632,97 @@ def main():
     y_test = create_one_hot_vector(y_test)
     y_val = create_one_hot_vector(y_val)
 
-    optimizer = Optimizers(
-        Functions.ActivationFunctions.tanh,
-        Functions.LossFunctions.cross_entropy,
-        Functions.softmax,
-        25, 5e-3, x_train, y_train, 1024
-    )
+    # optimizer = Optimizers(
+    #     Functions.ActivationFunctions.tanh,
+    #     Functions.LossFunctions.cross_entropy,
+    #     Functions.softmax,
+    #     10, 1e-5, x_train, y_train, 32
+    # )
 
-    nn = NeuralNetwork(                                     #pylint: disable=C0103
-        28 * 28, [64], 10,
-        False, 4,
-        optimizer.gradient_descent,
-        optimizer
-    )
+    # nn = NeuralNetwork(                                     #pylint: disable=C0103
+    #     28 * 28, [128], 10,
+    #     False, 5,
+    #     optimizer.gradient_descent,
+    #     optimizer
+    # )
 
-    nn.train()
+    # nn.train()
 
-    count = 0
-    temp = 10
+    # count = 0
+    # temp = 10
 
-    for i in range(x_val.shape[0]):
+    # for i in range(x_val.shape[0]):
 
-        y_pred = nn.predict(x_val[i,:])
-        final = np.zeros_like(y_pred)
-        final[np.argmax(y_pred)] = 1
-        if temp > 0:
-            # tq2=" ".join([f"{q:1.3f}" for q in x_val[i,:]])
-            t_q= " ".join([f"{q:1.3f}" for q in y_pred])
-            print(f"{temp}: {t_q} - {y_val[i,:]}")
-            temp -= 1
+    #     y_pred = nn.predict(x_val[i,:])
+    #     final = np.zeros_like(y_pred)
+    #     final[np.argmax(y_pred)] = 1
+    #     if temp > 0:
+    #         # tq2=" ".join([f"{q:1.3f}" for q in x_val[i,:]])
+    #         t_q= " ".join([f"{q:1.3f}" for q in y_pred])
+    #         print(f"{temp}: {t_q} - {y_val[i,:]}")
+    #         temp -= 1
             
-        # print("Pred", y_pred)
-        if (y_val[i,:] == final).all():
-            count += 1
+    #     # print("Pred", y_pred)
+    #     if (y_val[i,:] == final).all():
+    #         count += 1
 
-    print(100 * count/x_val.shape[0])
+    # print(100 * count/x_val.shape[0])
+    
+    #TODO: Batch sizes things -> 54000 images to be processed but in batches
+    #TODO: All optimizers should have the same signature, ig
+    #TODO: If gradient descent, then don't take gamma -> Done using assertion that gamma is None
+    losses = []
+    for k,l in zip([32,64,128],[5,4,3]):
+
+        for j in [1e-3, 5e-3, 1e-4, 5e-4, 1e-5]:
+
+            for (x, y) in zip([10, 15, 20, 25, 20],[4096, 3072, 2048, 1500, 4096]):
+
+                import datetime
+                print("START", datetime.datetime.now())
+
+                optimizer = Optimizers(
+                    Functions.ActivationFunctions.tanh,
+                    Functions.LossFunctions.cross_entropy,
+                    Functions.softmax,
+                    int(x), j, x_train, y_train, int(y),
+                    gamma = k / 10
+                )
+
+                nn = NeuralNetwork(                                     #pylint: disable=C0103
+                    28 * 28, [k], 10,
+                    False, l,
+                    optimizer.gradient_descent,
+                    optimizer
+                )
+
+                nn.train()
+
+                count = 0
+                temp = 5
+
+                for i in range(x_val.shape[0]):
+
+                    y_pred = nn.predict(x_val[i,:])
+                    final = np.zeros_like(y_pred)
+                    final[np.argmax(y_pred)] = 1
+                    if temp > 0:
+                        # tq2=" ".join([f"{q:1.3f}" for q in x_val[i,:]])
+                        t_q= " ".join([f"{q:1.3f}" for q in y_pred])
+                        print(f"{temp}: {t_q} - {y_val[i,:]}")
+                        temp -= 1
+                        
+                    # print("Pred", y_pred)
+                    if (y_val[i,:] == final).all():
+                        count += 1
+
+                print(k, l, j, x, y, 100 * count/x_val.shape[0], flush=True)
+                losses.append((k, l, j, x, y, 100 * count/x_val.shape[0]))
+                print("END", datetime.datetime.now())
+
+
+    for loss in losses:
+        print(loss)
 
 if __name__ == "__main__":
     main()
