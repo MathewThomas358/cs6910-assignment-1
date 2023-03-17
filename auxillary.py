@@ -5,8 +5,9 @@
 from typing import Callable
 import numpy as np
 
-def create_one_hot_vector(data, num_classes=None):
+def create_one_hot_vector(data, num_classes=None) -> np.ndarray:
     """Creates one hot vectors"""
+
     data = np.array(data, dtype='int')
     input_shape = data.shape
     if input_shape and input_shape[-1] == 1 and len(input_shape) > 1:
@@ -19,7 +20,6 @@ def create_one_hot_vector(data, num_classes=None):
     categorical = np.reshape(categorical, output_shape)
 
     return categorical
-
 
 class Functions:
     """Class of functions"""
@@ -108,16 +108,16 @@ class Functions:
 
         if function is Functions.LossFunctions.cross_entropy:
             return Functions.LossFunctions.grad_cross_entropy
-        
 
 def map_functions(name: str) -> Callable:
+    """#! TODO"""
 
     if name == "sigmoid":
         return Functions.ActivationFunctions.sigmoid
-    
+
     if name == "relu":
         return Functions.ActivationFunctions.relu
-    
+
     if name == "tanh":
         return Functions.ActivationFunctions.tanh
     

@@ -32,7 +32,7 @@ sweep_conf = {
             'values': [1e-3, 1e-4, 1e-5] 
         },
         'optimizer': {
-            'values': [ 'sgd' ] #, 'momentum', 'nesterov', 'rmsprop', 'adam', 'nadam']
+            'values': [ 'sgd' , 'momentum', 'nesterov', 'rmsprop', 'adam' ] #, 'nadam']
         },
         'batch_size' : {
             'values':[16, 32, 64, 128, 256]
@@ -51,11 +51,10 @@ sweep_id = wb.sweep(sweep_conf, project="cs6910-assignment-1", entity="cs22m056"
 def sweep():
     """#! TODO"""
 
-    conf = {}
-
+    conf = {} #! TODO
     wb.init(config = conf, resume = "auto")
     config = wb.config
-    wb.run.name = (
+    name = (
         "op_" + str(config.optimizer) + 
         "_nh_" + str(config.no_of_hidden_layers) + 
         "_hl_" + str(config.hidden_size) +
@@ -63,7 +62,10 @@ def sweep():
         "_ac_" + str(config.batch_size)
     )
 
+    wb.run.name = name
+
     train, val, _ = get_data()
+
     if config.optimizer == "sgd":
 
         opt = Optimizers(
@@ -77,17 +79,128 @@ def sweep():
             x_val = val[0],
             y_val = val[1],
             l2_regpara = config.l2_regpara,
+            is_sweeping = True
+            #training_set_size = 1024 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
-            hidden_size = config.hidden_size,
+            hidden_size = [config.hidden_size],
             no_of_hidden_layers = config.no_of_hidden_layers,
             optimizer_function = opt.gradient_descent,
             optimizer_object = opt,
             weight_init = config.weight_init
         )
 
-        nn.train()
+    if config.optimizer == "momentum":
 
+        opt = Optimizers(
+            map_functions(config.activation),
+            Functions.LossFunctions.cross_entropy,
+            Functions.softmax,
+            config.epochs,
+            config.learning_rate,
+            train[0], train[1],
+            config.batch_size,
+            x_val = val[0],
+            y_val = val[1],
+            l2_regpara = config.l2_regpara,
+            is_sweeping = True,
+            gamma = 0.9
+            #training_set_size = 1024 #TEST
+        )
 
-wb.agent(sweep_id, sweep, "cs22m056", "cs6910-assignment-1", 1)
+        nn = NeuralNetwork( #pylint: disable=C0103
+            hidden_size = [config.hidden_size],
+            no_of_hidden_layers = config.no_of_hidden_layers,
+            optimizer_function = opt.momentum_gradient_descent,
+            optimizer_object = opt,
+            weight_init = config.weight_init
+        )
+
+    if config.optimizer == "nesterov":
+
+        opt = Optimizers(
+            map_functions(config.activation),
+            Functions.LossFunctions.cross_entropy,
+            Functions.softmax,
+            config.epochs,
+            config.learning_rate,
+            train[0], train[1],
+            config.batch_size,
+            x_val = val[0],
+            y_val = val[1],
+            l2_regpara = config.l2_regpara,
+            is_sweeping = True,
+            gamma = 0.9
+            #training_set_size = 1024 #TEST
+        )
+
+        nn = NeuralNetwork( #pylint: disable=C0103
+            hidden_size = [config.hidden_size],
+            no_of_hidden_layers = config.no_of_hidden_layers,
+            optimizer_function = opt.nesterov_gradient_descent,
+            optimizer_object = opt,
+            weight_init = config.weight_init
+        )
+
+    if config.optimizer == "rmsprop":
+
+        opt = Optimizers(
+            map_functions(config.activation),
+            Functions.LossFunctions.cross_entropy,
+            Functions.softmax,
+            config.epochs,
+            config.learning_rate,
+            train[0], train[1],
+            config.batch_size,
+            x_val = val[0],
+            y_val = val[1],
+            l2_regpara = config.l2_regpara,
+            is_sweeping = True,
+            epsilon = 1e-8,
+            beta = 0.95
+            #training_set_size = 1024 #TEST
+        )
+
+        nn = NeuralNetwork( #pylint: disable=C0103
+            hidden_size = [config.hidden_size],
+            no_of_hidden_layers = config.no_of_hidden_layers,
+            optimizer_function = opt.rmsprop,
+            optimizer_object = opt,
+            weight_init = config.weight_init
+        )
+
+    if config.optimizer == "adam":
+
+        opt = Optimizers(
+            map_functions(config.activation),
+            Functions.LossFunctions.cross_entropy,
+            Functions.softmax,
+            config.epochs,
+            config.learning_rate,
+            train[0], train[1],
+            config.batch_size,
+            x_val = val[0],
+            y_val = val[1],
+            l2_regpara = config.l2_regpara,
+            is_sweeping = True,
+            beta = 0.9,
+            beta2 = 0.99,
+            epsilon = 1e-8
+            #training_set_size = 128 #TEST
+        )
+
+        nn = NeuralNetwork( #pylint: disable=C0103
+            hidden_size = [config.hidden_size],
+            no_of_hidden_layers = config.no_of_hidden_layers,
+            optimizer_function = opt.adam,
+            optimizer_object = opt,
+            weight_init = config.weight_init
+        )
+
+    nn.train()
+
+    import time
+    time.sleep(120)
+
+wb.agent(sweep_id, sweep, "cs22m056", "cs6910-assignment-1", 40)

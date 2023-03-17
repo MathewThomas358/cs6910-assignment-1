@@ -139,6 +139,7 @@ class Optimizers:
         x_val: np.ndarray = None,
         y_val: np.ndarray = None,
         l2_regpara: float = 0,
+        is_sweeping: bool = False
     ):
         assert epochs is not None, "" #! TODO: Fill assertion messages
         assert activation_function is not None, "" #! TODO: Fill assertion messages
@@ -160,6 +161,7 @@ class Optimizers:
         self.x_val = x_val
         self.y_val = y_val
         self.lamda = l2_regpara
+        self.sweep_status = is_sweeping
 
         self.gamma = gamma
         self.beta = beta
@@ -187,6 +189,7 @@ class Optimizers:
 
         training_loss_cr = 0  # ! Change
         training_hits = 0  # ! Add
+        norm = 0 # ! Add
 
         for j in range(self.epochs):
 
@@ -211,7 +214,11 @@ class Optimizers:
                     self.output_function
                 )
 
-                training_loss_cr += self.loss_function(y_pred, y_train_label) #! TODO: Add norm, lambda
+                norm = self.__calculate_norm(network) # ! Add
+                training_loss_cr += self.loss_function(
+                    y_pred, y_train_label,
+                    norm, self.lamda
+                ) #! TODO: Add norm, lambda in other optimizers
 
                 if (y_pred.flatten() == y_train_label).all():
                     training_hits += 1
@@ -235,9 +242,10 @@ class Optimizers:
                 self.__reset_grads_in_network(network)
 
             print("Epoch", j, "Training Loss:",
-                  training_loss_cr / self.training_set_size)
+                  training_loss_cr / self.training_set_size) # ! Change
 
-        evaluate_metrics_and_log(  # ! TODO
+        if self.sweep_status:
+            evaluate_metrics_and_log(  # ! Add
             training_loss_cr / self.training_set_size,
             training_hits / self.training_set_size,
             self.x_val,
@@ -247,7 +255,8 @@ class Optimizers:
             self.activation_function,
             self.output_function,
             self.loss_function,
-            None #! TODO
+            self.lamda,
+            norm
         )
 
     def momentum_gradient_descent(
@@ -261,9 +270,14 @@ class Optimizers:
 
         assert self.gamma is not None, "gamma not provided"
 
+        training_loss_cr = 0
+        training_hits = 0
+        norm = 0
+
         for j in range(self.epochs):
 
-            training_loss = 0
+            training_loss_cr = 0
+            training_hits = 0
             points_covered = 0
 
             arr = np.arange(self.x_train.shape[0])
@@ -281,7 +295,11 @@ class Optimizers:
                 _, y_pred = forward_propagation(
                     network, self.activation_function, self.output_function)
 
-                training_loss += self.loss_function(y_pred, y_train_label)
+                norm = self.__calculate_norm(network)
+                training_loss_cr += self.loss_function(
+                    y_pred, y_train_label,
+                    norm, self.lamda
+                )
 
                 back_propagation(
                     network, y_pred, y_train_label,
@@ -302,7 +320,19 @@ class Optimizers:
                 self.__reset_grads_in_network(network)
 
             print("Epoch", j, "Training Loss:",
-                  training_loss / self.training_set_size)
+                  training_loss_cr / self.training_set_size)
+
+        if self.sweep_status:
+            evaluate_metrics_and_log(
+            training_loss_cr / self.training_set_size,
+            training_hits / self.training_set_size,
+            self.x_val, self.y_val,
+            network, forward_propagation,
+            self.activation_function,
+            self.output_function,
+            self.loss_function,
+            self.lamda, norm
+        )
 
     def nesterov_gradient_descent(
             self,
@@ -315,9 +345,14 @@ class Optimizers:
 
         assert self.gamma is not None, "gamma not provided"
 
+        training_loss_cr = 0  # ! Change
+        training_hits = 0  # ! Add
+        norm = 0 # ! Add
+
         for j in range(self.epochs):
 
-            training_loss = 0
+            training_loss_cr = 0  # ! Change
+            training_hits = 0  # ! Add
             points_covered = 0
 
             arr = np.arange(self.x_train.shape[0])
@@ -338,7 +373,11 @@ class Optimizers:
                     self.output_function
                 )
 
-                training_loss += self.loss_function(y_pred, y_train_label)
+                norm = self.__calculate_norm(network) # ! Add
+                training_loss_cr += self.loss_function(
+                    y_pred, y_train_label,
+                    norm, self.lamda
+                ) #! TODO: Add norm, lambda in other optimizers
 
                 #! TODO: Should this update be before or after back_prop
                 # TODO
@@ -366,7 +405,22 @@ class Optimizers:
                 self.__reset_grads_in_network(network)
 
             print("Epoch", j, "Training Loss:",
-                  training_loss / self.training_set_size)
+                  training_loss_cr / self.training_set_size)
+
+        if self.sweep_status:
+            evaluate_metrics_and_log(  # ! Add
+            training_loss_cr / self.training_set_size,
+            training_hits / self.training_set_size,
+            self.x_val,
+            self.y_val,
+            network,
+            forward_propagation,
+            self.activation_function,
+            self.output_function,
+            self.loss_function,
+            self.lamda,
+            norm
+        )
 
     def rmsprop(
             self,
@@ -380,9 +434,14 @@ class Optimizers:
         assert self.eps is not None, "Epsilon not provided"
         assert self.beta is not None, "Beta not provided"
 
+        training_loss_cr = 0  # ! Change
+        training_hits = 0  # ! Add
+        norm = 0 # ! Add
+
         for j in range(self.epochs):
 
-            training_loss = 0
+            training_loss_cr = 0  # ! Change
+            training_hits = 0  # ! Add
             points_covered = 0
 
             arr = np.arange(self.x_train.shape[0])
@@ -403,7 +462,11 @@ class Optimizers:
                     self.output_function
                 )
 
-                training_loss += self.loss_function(y_pred, y_train_label)
+                norm = self.__calculate_norm(network) # ! Add
+                training_loss_cr += self.loss_function(
+                    y_pred, y_train_label,
+                    norm, self.lamda
+                )
 
                 back_propagation(
                     network, y_pred, y_train_label,
@@ -425,7 +488,22 @@ class Optimizers:
                 self.__reset_grads_in_network(network)
 
             print("Epoch", j, "Training Loss:",
-                  training_loss / self.training_set_size)
+                  training_loss_cr / self.training_set_size)
+            
+        if self.sweep_status:
+            evaluate_metrics_and_log(  # ! Add
+            training_loss_cr / self.training_set_size,
+            training_hits / self.training_set_size,
+            self.x_val,
+            self.y_val,
+            network,
+            forward_propagation,
+            self.activation_function,
+            self.output_function,
+            self.loss_function,
+            self.lamda,
+            norm
+        )
 
     def adam(
             self,
@@ -441,6 +519,7 @@ class Optimizers:
 
         training_loss_cr = 0  # ! Change
         training_hits = 0  # ! Add
+        norm = 0 # ! Add
 
         for j in range(self.epochs):
 
@@ -465,7 +544,11 @@ class Optimizers:
                     self.output_function
                 )
 
-                training_loss_cr += self.loss_function(y_pred, y_train_label) #! TODO: Add norm, lambda
+                norm = self.__calculate_norm(network) # ! Add
+                training_loss_cr += self.loss_function(
+                    y_pred, y_train_label,
+                    norm, self.lamda
+                )
 
                 if (y_pred.flatten() == y_train_label).all():
                     training_hits += 1
@@ -498,17 +581,18 @@ class Optimizers:
             print("Epoch", j, "Training Loss:",
                   training_loss_cr / self.training_set_size)
 
-        evaluate_metrics_and_log(  # ! TODO
+        if self.sweep_status:
+            evaluate_metrics_and_log(
             training_loss_cr / self.training_set_size,
             training_hits / self.training_set_size,
-            None,  # ! TODO
-            None,  # ! TODO
+            self.x_val, self.y_val,
             network,
             forward_propagation,
             self.activation_function,
             self.output_function,
             self.loss_function,
-            None #! TODO
+            self.lamda,
+            norm
         )
 
     def nadam(
@@ -527,6 +611,14 @@ class Optimizers:
 
         for i in range(1, network.shape[0]):
             network[i].reset_grads()
+
+    def __calculate_norm(self, network: list[Layer]) -> float:
+        """Calculates the norm of all the weights in the network"""
+
+        norm = 0
+        for i in range(1, network.shape[0]):
+            norm += np.sum(np.square(network[i].weights))
+        return norm
 
 class NeuralNetwork:
     """Neural Network implementation"""
@@ -719,11 +811,12 @@ def evaluate_metrics_and_log(
     activation_function: Callable,
     output_function: Callable,
     loss_function: Callable,
-    lamda: float
+    lamda: float,
+    norm: float
 ):
     """Used to evaluate the training and validation accuracies and losses"""
     #! TODO: Move to auxillary
-    
+
     validation_hits = 0
     validation_loss = 0
 
@@ -737,78 +830,103 @@ def evaluate_metrics_and_log(
         _, y_pred = forward_propagation(
             network, activation_function, output_function)
         
-        if (y_pred.flatten() == y_val_label).all():
+        if np.argmax(y_pred.flatten()) == np.argmax(y_val_label):
             validation_hits += 1
 
-        validation_loss += loss_function(y_pred, y_val_label, None, lamda) #! TODO
+        validation_loss += loss_function(y_pred, y_val_label, norm, lamda) #! TODO
 
     wb.log({
         "training_accuracy" : training_accuracy,
         "training_loss" : training_loss,
-        "validation_accuracy" : validation_hits / x_val.shape[0],
-        "validation_loss" : validation_loss / x_val.shape[0]
+        "validation_accuracy" : (validation_hits / x_val.shape[0]),
+        "validation_loss" : (validation_loss / x_val.shape[0])
     })
+    
 
 def main():
     """Main"""
 
-    (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-
-    x_val = x_train[:6000]
-    y_val = y_train[:6000]
-    x_train = x_train[:54000]
-    y_train = y_train[:54000]
-
-    x_train = x_train.reshape(x_train.shape[0], 28*28)
-    x_val = x_val.reshape(x_val.shape[0], 28*28)
-    x_test = x_test.reshape(x_test.shape[0], 28*28)
-
-    x_train = x_train / 255.0
-    x_test = x_test / 255.0
-    x_val = x_val / 255.0
-
-    y_train = create_one_hot_vector(y_train)
-    y_test = create_one_hot_vector(y_test)
-    y_val = create_one_hot_vector(y_val)
+    from data import get_data
+    train, val, _ = get_data()
 
     optimizer = Optimizers(
         Functions.ActivationFunctions.tanh,
         Functions.LossFunctions.cross_entropy,
         Functions.softmax,
-        15, 1e-5, x_train, y_train, 128,
-        beta=0.9, epsilon=1e-8, beta2 = 0.999  # , training_set_size=10800
+        10, 1e-5, train[0], train[1], 128,
+        x_val = val[0], y_val = val[1],
+        training_set_size=540,
+        is_sweeping=True,
+        l2_regpara=0.5
     )
 
     nn = NeuralNetwork(  # pylint: disable=C0103
         28 * 28, [128], 10,
         False, 4,
-        optimizer.adam,
+        optimizer.gradient_descent,
         optimizer
     )
 
     nn.train()
 
+    # (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+
+    # x_val = x_train[:6000]
+    # y_val = y_train[:6000]
+    # x_train = x_train[:54000]
+    # y_train = y_train[:54000]
+
+    # x_train = x_train.reshape(x_train.shape[0], 28*28)
+    # x_val = x_val.reshape(x_val.shape[0], 28*28)
+    # x_test = x_test.reshape(x_test.shape[0], 28*28)
+
+    # x_train = x_train / 255.0
+    # x_test = x_test / 255.0
+    # x_val = x_val / 255.0
+
+    # y_train = create_one_hot_vector(y_train)
+    # y_test = create_one_hot_vector(y_test)
+    # y_val = create_one_hot_vector(y_val)
+
+    # optimizer = Optimizers(
+    #     Functions.ActivationFunctions.tanh,
+    #     Functions.LossFunctions.cross_entropy,
+    #     Functions.softmax,
+    #     15, 1e-5, x_train, y_train, 128,
+    #     beta=0.9, epsilon=1e-8, beta2 = 0.999  # , training_set_size=10800
+    # )
+
+    # nn = NeuralNetwork(  # pylint: disable=C0103
+    #     28 * 28, [128], 10,
+    #     False, 4,
+    #     optimizer.adam,
+    #     optimizer
+    # )
+
+    # nn.train()
+
     count = 0
     temp = 10
 
-    for i in range(x_val.shape[0]):
+    for i in range(val[0].shape[0]):
 
-        y_pred = nn.predict(x_val[i, :])
+        y_pred = nn.predict((val[0])[i, :])
         final = np.zeros_like(y_pred)
         final[np.argmax(y_pred)] = 1
         if temp > 0:
             # tq2=" ".join([f"{q:1.3f}" for q in x_val[i,:]])
             t_q = " ".join([f"{q:1.3f}" for q in y_pred])
-            print(f"{temp}: {t_q} - {y_val[i,:]}")
+            print(f"{temp}: {t_q} - {(val[1])[i,:]}")
             temp -= 1
 
         # print("Pred", y_pred)
-        if (y_val[i, :] == final).all():
+        if ((val[1])[i, :] == final).all():
             count += 1
 
-    print(100 * count/x_val.shape[0])
+    print(100 * count/(val[0]).shape[0])
 
     # TODO
+    #! Add evaluate metrics for all optimizers
     #! Search for TODOs across files and find all the red ones
     #! Make sure that both stochastic and stochastic updates are the same
     # // TODO: Batch sizes things -> 54000 images to be processed but in batches -> done
