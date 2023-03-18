@@ -7,21 +7,24 @@ Meta
 from functools import partial  # TEST
 from typing import Callable, Any
 
-from keras.datasets import fashion_mnist
+import sys
+import os
 
 import numpy as np
 import wandb as wb
 
-from auxillary import create_one_hot_vector, Functions
+from auxillary import Functions
 
 RANDOM = "random"
 XAVIER = "xavier"
+DEBUG = True
 
-print = partial(print, flush=True)  # TEST
+if not DEBUG:
+    sys.stdout = open(os.devnull, 'w', encoding="utf-8") #Disable print
+else:
+    sys.stdout = sys.__stdout__ # Enable print
 
-
-# wb.init(project="cs6910-assignment-1")
-
+# print = partial(print, flush=True)  # TEST
 
 class Layer:
     """Layer"""
@@ -55,9 +58,46 @@ class Layer:
         eps: float = None,
         is_adam: bool = False,
         beta2: float = None,
-        epoch: int = None
+        epoch: int = None,
+        is_nadam: bool = False
     ) -> None:
         """Update"""
+
+        if is_nadam:
+
+            grad_loss_w_temp = self.grad_loss_w / (1 - np.power(beta, epoch))
+            grad_loss_b_temp = self.grad_loss_b / (1 - np.power(beta, epoch))
+
+            self.m_weights = (
+                beta * self.m_weights +
+                (1 - beta) * self.grad_loss_w
+            )
+            self.m_biases = (
+                beta * self.m_biases +
+                (1 - beta) * self.grad_loss_b
+            )
+            self.v_weights = (
+                beta2 * self.v_weights +
+                (1 - beta2) * self.grad_loss_w * self.grad_loss_w
+            )
+            self.v_biases = (
+                beta2 * self.v_biases +
+                (1 - beta2) * self.grad_loss_b * self.grad_loss_b
+            )
+
+            # TODO: ITP, make power computation once instead of twice
+            m_w_hat = self.m_weights / (1 - np.power(beta, epoch + 1))
+            m_b_hat = self.m_biases / (1 - np.power(beta, epoch + 1))
+
+            v_w_hat = self.v_weights / (1 - np.power(beta2, epoch))
+            v_b_hat = self.v_biases / (1 - np.power(beta2, epoch))
+
+            m_w_temp = (1 - beta) * grad_loss_w_temp + beta * m_w_hat
+            m_b_temp = (1 - beta) * grad_loss_b_temp + beta * m_b_hat
+
+            self.weights -= (eta / np.sqrt(v_w_hat) + eps) * m_w_temp
+            self.biases -= (eta / np.sqrt(v_b_hat) + eps) * m_b_temp
+            return
 
         if is_adam:
             self.m_weights = (
@@ -77,11 +117,12 @@ class Layer:
                 (1 - beta2) * self.grad_loss_b * self.grad_loss_b
             )
 
-            m_w_hat = self.m_weights / (1 - np.power(beta, epoch+1))
-            m_b_hat = self.m_biases / (1 - np.power(beta, epoch+1))
+            # TODO: ITP, make power computation once instead of twice
+            m_w_hat = self.m_weights / (1 - np.power(beta, epoch + 1))
+            m_b_hat = self.m_biases / (1 - np.power(beta, epoch + 1))
 
-            v_w_hat = self.v_weights / (1 - np.power(beta2, epoch+1))
-            v_b_hat = self.v_biases / (1 - np.power(beta2, epoch+1))
+            v_w_hat = self.v_weights / (1 - np.power(beta2, epoch + 1))
+            v_b_hat = self.v_biases / (1 - np.power(beta2, epoch + 1))
 
             self.weights -= (eta / np.sqrt(v_w_hat + eps)) * m_w_hat
             self.biases -= (eta / np.sqrt(v_b_hat + eps)) * m_b_hat
@@ -220,7 +261,7 @@ class Optimizers:
                     norm, self.lamda
                 ) #! TODO: Add norm, lambda in other optimizers
 
-                if (y_pred.flatten() == y_train_label).all():
+                if np.argmax(y_pred.flatten()) == np.argmax(y_train_label):
                     training_hits += 1
 
                 back_propagation(
@@ -244,10 +285,15 @@ class Optimizers:
             print("Epoch", j, "Training Loss:",
                   training_loss_cr / self.training_set_size) # ! Change
 
+        training_accuracy = training_hits / self.training_set_size
+        training_loss_cr = training_loss_cr / self.training_set_size
+
+        print("Training accuracy:", training_accuracy)
+
         if self.sweep_status:
             evaluate_metrics_and_log(  # ! Add
-            training_loss_cr / self.training_set_size,
-            training_hits / self.training_set_size,
+            training_loss_cr,
+            training_accuracy,
             self.x_val,
             self.y_val,
             network,
@@ -301,6 +347,9 @@ class Optimizers:
                     norm, self.lamda
                 )
 
+                if np.argmax(y_pred.flatten()) == np.argmax(y_train_label):
+                    training_hits += 1
+
                 back_propagation(
                     network, y_pred, y_train_label,
                     Functions.get_grad(self.loss_function),
@@ -322,10 +371,15 @@ class Optimizers:
             print("Epoch", j, "Training Loss:",
                   training_loss_cr / self.training_set_size)
 
+        training_accuracy = training_hits / self.training_set_size
+        training_loss_cr = training_loss_cr / self.training_set_size
+
+        print("Training accuracy:", training_accuracy)
+
         if self.sweep_status:
             evaluate_metrics_and_log(
-            training_loss_cr / self.training_set_size,
-            training_hits / self.training_set_size,
+            training_loss_cr,
+            training_accuracy,
             self.x_val, self.y_val,
             network, forward_propagation,
             self.activation_function,
@@ -379,9 +433,12 @@ class Optimizers:
                     norm, self.lamda
                 ) #! TODO: Add norm, lambda in other optimizers
 
-                #! TODO: Should this update be before or after back_prop
-                # TODO
+                if np.argmax(y_pred.flatten()) == np.argmax(y_train_label):
+                    training_hits += 1
+
                 if points_covered == self.batch_size:
+                    # This is a temporary update to the weights of the network.
+                    # This updated weights serve as input while computing grads.
                     for k in range(1, network.shape[0]):
                         network[k].weights -= self.gamma * network[k].v_weights
                         network[k].biases -= self.gamma * network[k].v_biases
@@ -395,6 +452,10 @@ class Optimizers:
 
                 if is_stochastic and points_covered == self.batch_size:
                     for k in range(1, network.shape[0]):
+                        # Reseting the weights to previous state before updating.
+                        # We are adding the previously subtracted value back.
+                        network[k].weights += self.gamma * network[k].v_weights
+                        network[k].biases += self.gamma * network[k].v_biases
                         network[k].update(self.eta, self.gamma)
                     self.__reset_grads_in_network(network)
                     points_covered = 0
@@ -407,10 +468,14 @@ class Optimizers:
             print("Epoch", j, "Training Loss:",
                   training_loss_cr / self.training_set_size)
 
+        training_accuracy = training_hits / self.training_set_size
+        training_loss_cr = training_loss_cr / self.training_set_size
+        print("Training accuracy:", training_accuracy)
+
         if self.sweep_status:
             evaluate_metrics_and_log(  # ! Add
-            training_loss_cr / self.training_set_size,
-            training_hits / self.training_set_size,
+            training_loss_cr,
+            training_accuracy,
             self.x_val,
             self.y_val,
             network,
@@ -468,6 +533,9 @@ class Optimizers:
                     norm, self.lamda
                 )
 
+                if np.argmax(y_pred.flatten()) == np.argmax(y_train_label):
+                    training_hits += 1
+
                 back_propagation(
                     network, y_pred, y_train_label,
                     Functions.get_grad(self.loss_function),
@@ -489,11 +557,15 @@ class Optimizers:
 
             print("Epoch", j, "Training Loss:",
                   training_loss_cr / self.training_set_size)
-            
+
+        training_accuracy = training_hits / self.training_set_size
+        training_loss_cr = training_loss_cr / self.training_set_size
+        print("Training accuracy:", training_accuracy)
+
         if self.sweep_status:
             evaluate_metrics_and_log(  # ! Add
-            training_loss_cr / self.training_set_size,
-            training_hits / self.training_set_size,
+            training_loss_cr,
+            training_accuracy,
             self.x_val,
             self.y_val,
             network,
@@ -526,6 +598,7 @@ class Optimizers:
             training_loss_cr = 0  # ! Change
             training_hits = 0  # ! Add
             points_covered = 0
+            update_count = 0
 
             arr = np.arange(self.x_train.shape[0])
             np.random.shuffle(arr)
@@ -550,7 +623,7 @@ class Optimizers:
                     norm, self.lamda
                 )
 
-                if (y_pred.flatten() == y_train_label).all():
+                if np.argmax(y_pred.flatten()) == np.argmax(y_train_label):
                     training_hits += 1
 
                 back_propagation(
@@ -561,6 +634,7 @@ class Optimizers:
                 )
 
                 if is_stochastic and points_covered == self.batch_size:
+                    update_count += 1
                     for k in range(1, network.shape[0]):
                         network[k].update(
                             self.eta,
@@ -568,7 +642,7 @@ class Optimizers:
                             beta = self.beta,
                             beta2 = self.beta_two,
                             eps = self.eps,
-                            epoch = i
+                            epoch = update_count
                         )
                     self.__reset_grads_in_network(network)
                     points_covered = 0
@@ -581,10 +655,14 @@ class Optimizers:
             print("Epoch", j, "Training Loss:",
                   training_loss_cr / self.training_set_size)
 
+        training_accuracy = training_hits / self.training_set_size
+        training_loss_cr = training_loss_cr / self.training_set_size
+        print("Training accuracy:", training_accuracy)
+
         if self.sweep_status:
             evaluate_metrics_and_log(
-            training_loss_cr / self.training_set_size,
-            training_hits / self.training_set_size,
+            training_loss_cr,
+            training_accuracy,
             self.x_val, self.y_val,
             network,
             forward_propagation,
@@ -599,13 +677,105 @@ class Optimizers:
             self,
             network: list[Layer],
             forward_propagation: Callable,
-            back_propagation: Callable
+            back_propagation: Callable,
+            is_stochastic: bool = True
     ):
         """Nadam"""
+
+        # Reference: https://cs229.stanford.edu/proj2015/054_report.pdf
+        #
+        # As per the report, we are supposed to use a "warming schedule",
+        # for momentum and we are supposed to divide our gradients by this
+        # factor (Refer: Algorithm 8, Pg 3). Instead of a "warming schedule"
+        # we will just raise momentum to the power of number of updates. 
+
         assert self.eps is not None, "Epsilon not provided"
         assert self.beta is not None, "Beta not provided"
         assert self.beta_two is not None, "Beta 2 not provided"
-        assert self.gamma is not None, "gamma not provided"
+
+        training_loss_cr = 0  # ! Change
+        training_hits = 0  # ! Add
+        norm = 0 # ! Add
+
+        for j in range(self.epochs):
+
+            training_loss_cr = 0  # ! Change
+            training_hits = 0  # ! Add
+            points_covered = 0
+            update_count = 0
+
+            arr = np.arange(self.x_train.shape[0])
+            np.random.shuffle(arr)
+
+            for i in range(self.training_set_size):
+
+                points_covered += 1
+                x_train_point = self.x_train[arr[i], :]
+                y_train_label = self.y_train[arr[i], :]
+
+                network[0].activation_h = np.expand_dims(x_train_point, axis=1)
+
+                _, y_pred = forward_propagation(
+                    network,
+                    self.activation_function,
+                    self.output_function
+                )
+
+                norm = self.__calculate_norm(network) # ! Add
+                training_loss_cr += self.loss_function(
+                    y_pred, y_train_label,
+                    norm, self.lamda
+                )
+
+                if np.argmax(y_pred.flatten()) == np.argmax(y_train_label):
+                    training_hits += 1
+
+                back_propagation(
+                    network, y_pred, y_train_label,
+                    Functions.get_grad(self.loss_function),
+                    Functions.get_grad(self.activation_function),
+                    self.lamda
+                )
+
+                if is_stochastic and points_covered == self.batch_size:
+                    update_count += 1
+                    for k in range(1, network.shape[0]):
+                        network[k].update(
+                            self.eta,
+                            is_nadam = True,
+                            beta = self.beta,
+                            beta2 = self.beta_two,
+                            eps = self.eps,
+                            epoch = update_count
+                        )
+                    self.__reset_grads_in_network(network)
+                    points_covered = 0
+
+            if not is_stochastic:
+                for i in range(1, network.shape[0]):
+                    network[i].update(self.eta)
+                self.__reset_grads_in_network(network)
+
+            print("Epoch", j, "Training Loss:",
+                  training_loss_cr / self.training_set_size)
+
+        training_accuracy = training_hits / self.training_set_size
+        training_loss_cr = training_loss_cr / self.training_set_size
+        print("Training accuracy:", training_accuracy)
+
+        if self.sweep_status:
+            evaluate_metrics_and_log(
+            training_loss_cr,
+            training_accuracy,
+            self.x_val, self.y_val,
+            network, forward_propagation,
+            self.activation_function,
+            self.output_function,
+            self.loss_function,
+            self.lamda, norm
+        )
+
+
 
     def __reset_grads_in_network(self, network: np.ndarray[Layer, Any]):
 
@@ -648,17 +818,19 @@ class NeuralNetwork:
         self.activation_function = optimizer_object.activation_function
         self.loss_function = optimizer_object.loss_function
         self.output_function = optimizer_object.output_function
-        self.total_layers = no_of_hidden_layers + 2
         self.weight_init = weight_init
-        self.testing = True  # TODO Remove
 
         if is_hidden_layer_size_variable:
-            self.sizes = [input_size] + hidden_size + [output_size]
+            self.sizes = [input_size] + hidden_size + [output_size] 
+            self.total_layers = len(self.sizes)
         else:
             self.sizes = [input_size]
             for _ in range(no_of_hidden_layers):
                 self.sizes = self.sizes + [hidden_size[0]]
             self.sizes = self.sizes + [output_size]
+            self.total_layers = no_of_hidden_layers + 2
+
+        assert len(self.sizes) == self.total_layers
 
         self.network = np.empty((self.total_layers, ), dtype=Layer)
 
@@ -835,19 +1007,25 @@ def evaluate_metrics_and_log(
 
         validation_loss += loss_function(y_pred, y_val_label, norm, lamda) #! TODO
 
-    wb.log({
-        "training_accuracy" : training_accuracy,
-        "training_loss" : training_loss,
-        "validation_accuracy" : (validation_hits / x_val.shape[0]),
-        "validation_loss" : (validation_loss / x_val.shape[0])
-    })
-    
+    validation_accuracy = validation_hits / x_val.shape[0]
+    validation_loss = validation_loss / x_val.shape[0]
+
+    metrics = {
+        "training_accuracy" : float(training_accuracy),
+        "training_loss" : float(training_loss),
+        "validation_accuracy" : float(validation_accuracy),
+        "validation_loss" : float(validation_loss)
+    }
+
+    wb.log(metrics)
+    print(metrics)
+
 
 def main():
     """Main"""
 
     from data import get_data
-    train, val, _ = get_data()
+    train, _, val = get_data()
 
     optimizer = Optimizers(
         Functions.ActivationFunctions.tanh,
@@ -855,15 +1033,18 @@ def main():
         Functions.softmax,
         10, 1e-5, train[0], train[1], 128,
         x_val = val[0], y_val = val[1],
-        training_set_size=540,
-        is_sweeping=True,
-        l2_regpara=0.5
+        training_set_size=10240,
+        is_sweeping=False,
+        l2_regpara=0.05,
+        epsilon = 1e-8,
+        beta = 0.9,
+        beta2 = 0.999
     )
 
     nn = NeuralNetwork(  # pylint: disable=C0103
-        28 * 28, [128], 10,
-        False, 4,
-        optimizer.gradient_descent,
+        28 * 28, [256, 128, 64], 10,
+        True, 5,
+        optimizer.nadam,
         optimizer
     )
 
@@ -926,9 +1107,12 @@ def main():
     print(100 * count/(val[0]).shape[0])
 
     # TODO
-    #! Add evaluate metrics for all optimizers
+    #// ! Add evaluate metrics for all optimizers
+    #! TODO: Recheck all algorithms for correctness
     #! Search for TODOs across files and find all the red ones
     #! Make sure that both stochastic and stochastic updates are the same
+    #! README.md
+    #! PyDocs
     # // TODO: Batch sizes things -> 54000 images to be processed but in batches -> done
     #! TODO: All optimizers should have the same signature, ig
     # // TODO: If gradient descent, then don't take gamma -> Done using assertion that gamma is None

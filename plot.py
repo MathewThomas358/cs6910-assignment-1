@@ -5,36 +5,24 @@ Implementation of Feedforward Neural Network with Backpropagation
 @author: cs22m056
 '''
 
-from keras.datasets import fashion_mnist
-
 import numpy as np
 import wandb as wb
 
+from data import get_data
 
 wb.init(project="cs6910-assignment-1")
 
 class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress',
                'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
 
-(x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
-
-
-x_val = x_train[:6000]
-y_val = y_train[:6000]
-x_train = x_train[:54000]
-y_train = y_train[:54000]
-
-x_train = x_train.reshape(x_train.shape[0], 784)
-x_val = x_val.reshape(x_val.shape[0], 784)
-x_test = x_test.reshape(x_test.shape[0], 784)
-
-x_train = x_train / 255.0
-x_test = x_test / 255.0
-x_val  = x_val / 255.0
-
 def plot_images():
     """Q1. Function to plot sample images from each class """
 
+    train, _, _ = get_data()
+
+    x_train = train[0]
+    y_train = train[1]
+    
     images = []
     labels = []
     for i in range(10):
