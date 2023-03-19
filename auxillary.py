@@ -164,7 +164,6 @@ def evaluate_metrics_and_log(
     norm: float
 ):
     """Used to evaluate the training and validation accuracies and losses"""
-    #! TODO: Move to auxillary
 
     validation_hits = 0
     validation_loss = 0
@@ -189,9 +188,9 @@ def evaluate_metrics_and_log(
     validation_loss = validation_loss / x_val.shape[0]
 
     metrics = {
-        "training_accuracy": float(training_accuracy),
+        "training_accuracy": float(training_accuracy) * 100,
         "training_loss": float(training_loss),
-        "validation_accuracy": float(validation_accuracy),
+        "validation_accuracy": float(validation_accuracy) * 100,
         "validation_loss": float(validation_loss)
     }
 
