@@ -125,7 +125,15 @@ class Functions:
             return Functions.LossFunctions.grad_cross_entropy
 
 def map_functions(name: str) -> Callable:
-    """#! TODO"""
+    """
+    Return the function related to the given name
+
+    Args:
+    name: str - Name of the function
+
+    Returns: 
+    Callable: Function corresponding to the name
+    """
 
     if name == "sigmoid":
         return Functions.ActivationFunctions.sigmoid

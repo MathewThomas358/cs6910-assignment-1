@@ -1,12 +1,25 @@
-"""#! TODO"""
+"""
+CS6910 - Assignment 1
 
+Fetches dataset.
+
+@author: cs22m056
+"""
 
 from keras.datasets import fashion_mnist, mnist
 
 from auxillary import create_one_hot_vector
 
 def get_data(dataset: str = "fashion_mnist"):
-    """#! TODO"""
+    """
+    Returns the dataset in the required format.
+
+    Args:
+    dataset: str - Name of the dataset to be fetched
+
+    Returns:
+    Three tuples, each tuple containing the data points and the labels
+    """
 
     if dataset == "fashion_mnist":
         print("Fetching Fashion MNIST dataset")

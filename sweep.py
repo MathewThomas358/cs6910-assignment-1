@@ -1,11 +1,15 @@
-"""
-    Sweep
-"""
+'''
+CS6910 - Assignment 1
+
+Performs sweep related operations.
+
+@author: cs22m056
+'''
 
 from typing import Any
 
-import wandb as wb
 import numpy as np
+import wandb as wb
 
 from network import NeuralNetwork, Optimizers
 from auxillary import map_functions, Functions
@@ -91,7 +95,14 @@ def init(
     wb.agent(sweep_id, sweep, wandb_entity, wandb_project, sweep_count)
 
 def set_hidden_layer(config: dict) -> list:
-    """Sets the hidden layers according to given config"""
+    """
+    Sets the hidden layers according to given config
+    
+    Args:
+    config: dict - Contains the various parameters required to
+    train the model.
+
+    """
 
     hidden_layers = []
     if config.is_hidden_layer_size_variable:

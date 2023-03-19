@@ -1,7 +1,9 @@
 """
+CS6910 - Assignment 1
 
-Meta
+Implementation of NeuralNetwork and Optimizers.
 
+@author: cs22m056
 """
 
 from typing import Callable, Any
@@ -16,7 +18,7 @@ from auxillary import Functions, evaluate_metrics_and_log
 RANDOM = "random"
 XAVIER = "xavier"
 
-DEBUG = True
+DEBUG = False
 TRAINING_LOSS = "Training Loss:"
 TRAINING_ACCURACY = "Training accuracy:"
 ASSERTION_LOG = "Missing mandatory parameter in "
@@ -158,7 +160,7 @@ class Layer:
         self.v_biases = bias_update
         self.v_weights = weight_update
 
-    def reset_grads(self):
+    def reset_grads(self) -> None:
         """Reset values"""
         self.grad_loss_h = np.zeros((self.grad_loss_h.shape[0], 1))
         self.grad_loss_a = np.zeros((self.grad_loss_a.shape[0], 1))
@@ -777,7 +779,7 @@ class Optimizers:
 
             print("Epoch", j, TRAINING_LOSS,
                   training_loss_cr / self.training_set_size)
-            
+
             losses.append(training_loss_cr / self.training_set_size)
 
         training_accuracy = training_hits / self.training_set_size
@@ -795,7 +797,7 @@ class Optimizers:
                 self.loss_function,
                 self.lamda, norm
             )
-        
+
         return losses
 
     def __reset_grads_in_network(self, network: np.ndarray[Layer, Any]):
@@ -813,7 +815,11 @@ class Optimizers:
 
 
 class NeuralNetwork:
-    """Neural Network implementation"""
+    """
+    
+    Neural Network implementation
+    
+    """
 
     def __init__(self,
                  input_size: int = 28 * 28,
@@ -825,13 +831,9 @@ class NeuralNetwork:
                  optimizer_object: Optimizers = None,
                  weight_init: str = XAVIER
                  ):
-        """
 
-        hidden_size: If the number of neurons in each in layer is the same,
-                    then the list will only contain one elements. If the number varies
-                    from layer to layer, then provide the entire list.
-        """
-
+        assert isinstance(hidden_size, list), \
+            "Pass a list instead of an int."
         assert hidden_size is not None, ASSERTION_LOG + __class__.__name__
         assert optimizer_function is not None, ASSERTION_LOG + __class__.__name__
         assert optimizer_object is not None, ASSERTION_LOG + __class__.__name__
@@ -999,98 +1001,31 @@ class NeuralNetwork:
 
 
 def map_optimizers(name: str, optimizer: Optimizers):
-    
+    """
+    Maps a given string to the corresponding optimizer function
+
+    Args:
+    name: str - Name of the optimizer
+    optimizer: Optmizer - The optimizer object
+
+    Returns:
+    Callable - The corresponding optimizer method
+    """
+
     if name == "sgd":
         return optimizer.gradient_descent
-    
+
     if name == "momentum":
         return optimizer.momentum_gradient_descent
-    
+
     if name == "nag":
         return optimizer.nesterov_gradient_descent
-    
+
     if name == "rmsprop":
         return optimizer.rmsprop
-    
+
     if name == "adam":
         return optimizer.adam
-    
+
     if name == "nadam":
         return optimizer.nadam
-
-
-def main():
-    """Main"""
-
-    from data import get_data
-    train, test, val = get_data()
-
-    optimizer = Optimizers(
-        Functions.ActivationFunctions.tanh,
-        Functions.LossFunctions.cross_entropy,
-        Functions.softmax,
-        15, 1e-3, train[0], train[1], 128,
-        x_val=val[0], y_val=val[1],
-        is_sweeping=False,
-        l2_regpara=0,
-        epsilon=1e-8,
-        beta=0.9,
-        beta2=0.999
-    )
-
-    nn = NeuralNetwork(  # pylint: disable=C0103
-        28 * 28, [64], 10,
-        False, 4,
-        optimizer.adam,
-        optimizer
-    )
-
-    nn.train()
-
-    count = 0
-
-    for i in range(val[0].shape[0]):
-
-        y_pred = nn.predict((val[0])[i, :])
-        final = np.zeros_like(y_pred)
-        final[np.argmax(y_pred)] = 1
-
-        if ((val[1])[i, :] == final).all():
-            count += 1
-
-    print("Validation", 100 * count/(val[0]).shape[0])
-
-    val = test
-
-    count = 0
-
-    true_labels = []
-    pred_labels = []
-
-    for i in range(val[0].shape[0]):
-
-        y_pred = nn.predict((val[0])[i, :])
-        final = np.zeros_like(y_pred)
-        final[np.argmax(y_pred)] = 1
-
-        true_labels.append(np.argmax((val[1])[i, :]))
-        pred_labels.append(np.argmax(y_pred))
-
-        if ((val[1])[i, :] == final).all():
-            count += 1
-
-    print("Test", 100 * count/(val[0]).shape[0])
-
-    # TODO
-    # // ! Add evaluate metrics for all optimizers
-    #! TODO: Recheck all algorithms for correctness
-    #! Search for TODOs across files and find all the red ones
-    #! Make sure that both stochastic and non stochastic updates are the same
-    #! README.md
-    #! PyDocs
-    # // TODO: Batch sizes things -> 54000 images to be processed but in batches -> done
-    #! TODO: All optimizers should have the same signature, ig
-    # // TODO: If gradient descent, then don't take gamma -> Done using assertion that gamma is None
-
-if __name__ == "__main__":
-    main()
