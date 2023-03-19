@@ -5,10 +5,10 @@ from keras.datasets import fashion_mnist, mnist
 
 from auxillary import create_one_hot_vector
 
-def get_data(dataset: str = "fashion-mnist"):
+def get_data(dataset: str = "fashion_mnist"):
     """#! TODO"""
 
-    if dataset == "fashion-mnist":
+    if dataset == "fashion_mnist":
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
 
     if dataset == "mnist":

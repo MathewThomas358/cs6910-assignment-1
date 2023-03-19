@@ -22,17 +22,22 @@ def plot_images():
 
     x_train = train[0]
     y_train = train[1]
-    
+
     images = []
     labels = []
+
     for i in range(10):
 
-        index = np.where(y_train == i)
+        temp = np.zeros_like(y_train[0])
+        temp[i] = 1
+        index = np.where(y_train == temp)
         images.append(x_train[index[0][0]])
         labels.append(class_names[i])
 
     wb.log({"Samples from each class": [
-        wb.Image(img, caption=caption) for img, caption in zip(images, labels)
+        wb.Image(
+            np.reshape(img, (-1, 28)), caption=caption
+        ) for img, caption in zip(images, labels)
     ]})
 
 if __name__ == "__main__":

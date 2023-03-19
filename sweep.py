@@ -8,62 +8,74 @@ from network import NeuralNetwork, Optimizers
 from auxillary import map_functions, Functions
 from data import get_data
 
-sweep_conf = {
+def init(
+        wandb_project:str = "cs6910-assignment-1",
+        wandb_entity:str = "cs22m056",
+        sweep_conf: dict = None
+):
+    """Init"""
 
-    'method' : 'bayes',
-    'metric' : {
-      'name' : 'validation_accuracy',
-      'goal' : 'maximize'   
-    },
-    'parameters': {
-        'epochs': {
-            'values': [5, 10, 15, 20]
-        },
-        'is_hidden_layer_size_variable': {
-            'values': [True, False]
-        },
-        'no_of_hidden_layers': {
-            'values': [3, 4, 5]
-        },
-        'hidden_size_1': {
-            'values': [32, 64, 128, 256]
-        },
-        'hidden_size_2': {
-            'values': [32, 64, 128, 256]
-        },
-        'hidden_size_3': {
-            'values': [32, 64, 128, 256]
-        },
-        'hidden_size_4': {
-            'values': [32, 64, 128, 256]
-        },
-        'hidden_size_5': {
-            'values': [32, 64, 128, 256]
-        },
-        'l2_regpara': {
-            'values': [0, 0.5, 0.05, 0.005]
-        },
-        'learning_rate': {
-            'values': [1e-3, 1e-4, 1e-5] 
-        },
-        'optimizer': {
-            'values': [ 'sgd' , 'momentum', 'nesterov', 'rmsprop', 'adam', 'nadam']
-        },
-        'batch_size' : {
-            'values':[16, 32, 64, 128, 256]
-        },
-        'weight_init': {
-            'values': ['random','xavier']
-        },
-        'activation': {
-            'values': ['sigmoid','tanh','relu']
+    if sweep_conf is None:
+        sweep_conf = {
+
+            'method' : 'bayes',
+            'metric' : {
+            'name' : 'validation_accuracy',
+            'goal' : 'maximize'   
+            },
+            'parameters': {
+                'epochs': {
+                    'values': [5, 10, 15, 20]
+                },
+                'is_hidden_layer_size_variable': {
+                    'values': [False] #, True]
+                },
+                'no_of_hidden_layers': {
+                    'values': [3, 4, 5]
+                },
+                'hidden_size_1': {
+                    'values': [512, 64, 128, 256]
+                },
+                # 'hidden_size_2': {
+                #     'values': [32, 64, 128, 256]
+                # },
+                # 'hidden_size_3': {
+                #     'values': [32, 64, 128, 256]
+                # },
+                # 'hidden_size_4': {
+                #     'values': [32, 64, 128, 256]
+                # },
+                # 'hidden_size_5': {
+                #     'values': [32, 64, 128, 256]
+                # },
+                'l2_regpara': {
+                    'values': [0, 0.5, 0.05, 0.005, 5e-4]
+                },
+                'learning_rate': {
+                    'values': [1e-3, 1e-4, 1e-5] 
+                },
+                'optimizer': {
+                    'values': [ 'nadam', 'momentum', 'nesterov', 'rmsprop', 'adam', 'sgd']
+                },
+                'batch_size' : {
+                    'values':[16, 32, 64, 128, 256]
+                },
+                'weight_init': {
+                    'values': ['random','xavier']
+                },
+                'activation': {
+                    'values': ['sigmoid','tanh','relu']
+                }
+            }
         }
-    }
-}
 
-sweep_id = wb.sweep(sweep_conf, project="cs6910-assignment-1", entity="cs22m056")
+    sweep_id = wb.sweep(sweep_conf, project=wandb_project, entity=wandb_entity)
+    wb.agent(sweep_id, sweep, "cs22m056", "cs6910-assignment-1", 40)
+
+    sweep()
 
 def set_hidden_layer(config: dict) -> list:
+    """Sets the hidden layers according to given config"""
 
     hidden_layers = []
     if config.is_hidden_layer_size_variable:
@@ -128,7 +140,7 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True
-            ,training_set_size = 2048 #TEST
+            #,training_set_size = 8196 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -155,7 +167,7 @@ def sweep():
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
             gamma = 0.9
-            ,training_set_size = 2048 #TEST
+            #,training_set_size = 8196 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -182,7 +194,7 @@ def sweep():
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
             gamma = 0.9
-            ,training_set_size = 2048 #TEST
+            #,training_set_size = 8196 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -210,7 +222,7 @@ def sweep():
             is_sweeping = True,
             epsilon = 1e-8,
             beta = 0.95
-            ,training_set_size = 2048 #TEST
+            #,training_set_size = 8196 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -239,7 +251,7 @@ def sweep():
             beta = 0.9,
             beta2 = 0.999,
             epsilon = 1e-8
-            ,training_set_size = 2048 #TEST
+            #,training_set_size = 8196 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -268,7 +280,7 @@ def sweep():
             beta = 0.9,
             beta2 = 0.999,
             epsilon = 1e-8
-            ,training_set_size = 2048 #TEST
+            #,training_set_size = 8196 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -282,7 +294,3 @@ def sweep():
 
     nn.train()
 
-    # import time #TEST
-    # time.sleep(120) #TEST
-
-wb.agent(sweep_id, sweep, "cs22m056", "cs6910-assignment-1", 20)

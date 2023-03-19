@@ -3,7 +3,11 @@
 """
 
 from typing import Callable
+
 import numpy as np
+import wandb as wb
+
+from network import Optimizers
 
 def create_one_hot_vector(data, num_classes=None) -> np.ndarray:
     """Creates one hot vectors"""
@@ -106,7 +110,8 @@ class Functions:
         if function is Functions.ActivationFunctions.relu:
             return Functions.GradientActivationFunctions.grad_relu
 
-        if function is Functions.LossFunctions.cross_entropy:
+        if function is Functions.LossFunctions.cross_entropy or \
+            function is Functions.LossFunctions.squared_loss:
             return Functions.LossFunctions.grad_cross_entropy
 
 def map_functions(name: str) -> Callable:
@@ -120,4 +125,79 @@ def map_functions(name: str) -> Callable:
 
     if name == "tanh":
         return Functions.ActivationFunctions.tanh
+
+    if name == "mean_squared_error":
+        return Functions.LossFunctions.squared_loss
+
+    if name == "cross_entropy":
+        return Functions.LossFunctions.cross_entropy
+
+def map_optimizer(name: str, optimizer_object: Optimizers) -> Callable:
+    """Map opti"""
+
+    if name == "sgd":
+        return optimizer_object.gradient_descent
+
+    if name == "momentum":
+        return optimizer_object.momentum_gradient_descent
+
+    if name == "nag":
+        return optimizer_object.nesterov_gradient_descent
+
+    if name == "rmsprop":
+        return optimizer_object.rmsprop
     
+    if name == "adam":
+        return optimizer_object.adam
+    
+    if name == "nadam":
+        return optimizer_object.nadam
+
+
+def evaluate_metrics_and_log(
+    training_loss: float,
+    training_accuracy: float,
+    x_val: np.ndarray,
+    y_val: np.ndarray,
+    network: np.ndarray,
+    forward_propagation: Callable,
+    activation_function: Callable,
+    output_function: Callable,
+    loss_function: Callable,
+    lamda: float,
+    norm: float
+):
+    """Used to evaluate the training and validation accuracies and losses"""
+    #! TODO: Move to auxillary
+
+    validation_hits = 0
+    validation_loss = 0
+
+    for i in range(x_val.shape[0]):
+
+        x_val_point = x_val[i, :]
+        y_val_label = y_val[i, :]
+
+        network[0].activation_h = np.expand_dims(x_val_point, axis=1)
+
+        _, y_pred = forward_propagation(
+            network, activation_function, output_function)
+
+        if np.argmax(y_pred.flatten()) == np.argmax(y_val_label):
+            validation_hits += 1
+
+        validation_loss += loss_function(y_pred,
+                                         y_val_label, norm, lamda)  # ! TODO
+
+    validation_accuracy = validation_hits / x_val.shape[0]
+    validation_loss = validation_loss / x_val.shape[0]
+
+    metrics = {
+        "training_accuracy": float(training_accuracy),
+        "training_loss": float(training_loss),
+        "validation_accuracy": float(validation_accuracy),
+        "validation_loss": float(validation_loss)
+    }
+
+    wb.log(metrics)
+    print(metrics)
