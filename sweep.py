@@ -5,6 +5,7 @@
 from typing import Any
 
 import wandb as wb
+import numpy as np
 
 from network import NeuralNetwork, Optimizers
 from auxillary import map_functions, Functions
@@ -18,14 +19,20 @@ CONF = {
     "beta2": 0.999
 }
 
+FLAG = False
+
 def init(
         wandb_project:str = "cs6910-assignment-1",
         wandb_entity:str = "cs22m056",
         sweep_conf: dict = None,
         sweep_count: int = 1,
-        additional_params: Any = None
+        additional_params: Any = None, 
+        is_invoked_from_train: bool = False
 ):
     """Init"""
+
+    global FLAG
+    FLAG = is_invoked_from_train
 
     if sweep_conf is None:
         sweep_conf = {
@@ -128,7 +135,7 @@ def sweep():
 
     wb.run.name = name
 
-    train, train, val = get_data()
+    train, test, val = get_data()
 
     if config.optimizer == "sgd":
 
@@ -144,7 +151,6 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True
-            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -171,7 +177,6 @@ def sweep():
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
             gamma = config.gamma
-            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -198,7 +203,6 @@ def sweep():
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
             gamma = config.gamma
-            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -226,7 +230,6 @@ def sweep():
             is_sweeping = True,
             epsilon = config.epsilon,
             beta = config.beta
-            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -255,7 +258,6 @@ def sweep():
             beta = config.beta1,
             beta2 = config.beta2,
             epsilon = config.epsilon
-            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -266,7 +268,7 @@ def sweep():
             optimizer_object = opt,
             weight_init = config.weight_init
         )
-    
+
     if config.optimizer == "nadam":
 
         opt = Optimizers(
@@ -284,7 +286,6 @@ def sweep():
             beta = config.beta1,
             beta2 = config.beta2,
             epsilon = config.epsilon
-            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -297,6 +298,22 @@ def sweep():
         )
 
     nn.train()
+
+    if FLAG:
+
+        count = 0
+        for i in range(test[0].shape[0]):
+
+            y_pred = nn.predict((test[0])[i, :])
+            final = np.zeros_like(y_pred)
+            final[np.argmax(y_pred)] = 1
+
+            if ((test[1])[i, :] == final).all():
+                count += 1
+
+        print("Accuracy on test", 100 * count/(test[0]).shape[0])
+        wb.log({"test_accuracy": 100 * count/(test[0]).shape[0]})
+
 
 
 if __name__ == "__main__":

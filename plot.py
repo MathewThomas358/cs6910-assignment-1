@@ -96,12 +96,3 @@ def plot_conf_matrix(true: list, pred: list):
 
     conf_matrix = confusion_matrix(true, pred)
     plot_confusion_matrix(conf_matrix, class_names)
-
-
-if __name__ == "__main__":
-
-    true = [1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,4,5,6,4,5,6,4,5,6,4,5,6,4,5,6]
-    pred = [1,1,3,2,2,3,3,2,3,1,2,1,1,1,3,1,2,2,4,3,6,1,5,6,5,5,5,4,2,6,4,5,1]
-
-    cm = confusion_matrix(true, pred)
-    plot_confusion_matrix(cm, ["A", "B", "C"])

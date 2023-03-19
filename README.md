@@ -1,12 +1,14 @@
 # CS6910 Assignment 1
 
-## Author: CS22M056
+## Author: Mathew Thomas - CS22M056
 
 Link to `wandb` report: https://wandb.ai/cs22m056/cs6910-assignment-1/reports/CS6910-Assignment-1
 
 ### Training the model
 
+The model can be trained by invoking the `train.py` file with the necessary arguments. The arguments include the number of epochs, the optimizer to be used, the loss function to be used, etc. The entire list of commands can be obtained by running `python train.py --help`. On running this script with the appropriate arguments, it will first train the neural network. Then it will proceed to calculate the accuracy on the test set and this accuracy will be printed on the console. The training loss, training accuracy, validation accuracy, validation loss and test accuracy will be logged by `wandb`.
 
+Each function and class in each script will have an associated doc, which will explain the functionality of the code. Each invocation of the file may take time depending on the arguments passed. The `DEBUG` flag in the file can be made `True` inorder to see the prints. 
 
 ### Files
 
@@ -20,3 +22,10 @@ The project mainly consists of six files:
 4. `plot.py` - This script contains the implementation for generating sample images from each class and for creating the confusion matrix and it's plot.
 5. `auxillary.py` - This script contains the various helper functions and classes used by other scripts like `create_one_hot_vector` which create one hot encoded vectors.
 6. `data.py` - This script contains the `get_data` function which will take as argument a string, which can be *mnist* or *fashion_mnist* and return 3 tuples, namely training data, test data and validation data. 
+
+### Pending Work
+
+* Refactor the code to reuse functions and reduce cognitive complexity. 
+* Remove the requirement to pass functions as arguments to other functions.
+* Improve the documentation for each function.
+* Add progress bar in the code to inform that the code is still runnning.

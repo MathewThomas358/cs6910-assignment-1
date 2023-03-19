@@ -78,7 +78,8 @@ def main():
         wandb_entity = args.wandb_entity,
         sweep_conf = sweep_conf,
         sweep_count = 1,
-        additional_params = args
+        additional_params = args,
+        is_invoked_from_train = True
     )
 
 if __name__ == "__main__":
