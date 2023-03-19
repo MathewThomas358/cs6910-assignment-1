@@ -1,5 +1,11 @@
 """
-#! TODO
+CS6910 - Assignment 1
+
+Based on the parameters given as arguments or based on the default values,
+initiates a neural network training sequence and then makes a prediction
+on the test set and report the accuracy on the test set.
+
+@author: cs22m056
 """
 
 import argparse as ap
@@ -7,7 +13,9 @@ import argparse as ap
 from sweep import init
 
 def main():
-    """The main function"""
+    """
+    The most important function. The Alpha. The Main function.
+    """
 
     parser = ap.ArgumentParser(
         description= "Utility for training and predicting MNIST-like datesets"
@@ -20,16 +28,16 @@ def main():
     parser.add_argument("-l", "--loss", type=str, default="cross_entropy")
     parser.add_argument("-o", "--optimizer", type=str, default="adam")
     parser.add_argument("-lr", "--learning_rate", type=float, default=1e-3)
-    parser.add_argument("-m", "--momentum", type=float, default=0.9) # TODO Make the change for this in the global there
-    parser.add_argument("-beta", "--beta", type=float, default=0.95) # TODO Default
-    parser.add_argument("-beta1", "--beta1", type=float, default=0.9) # TODO Default
-    parser.add_argument("-beta2", "--beta2", type=float, default=0.999) # TODO Default
-    parser.add_argument("-eps", "--epsilon", type=float, default=1e-8) # TODO Default
-    parser.add_argument("-w_d", "--weight_decay", type=float, default=0) # TODO Default
-    parser.add_argument("-w_i", "--weight_init", type=str, default="xavier") # TODO Default
-    parser.add_argument("-nhl", "--num_layers", type=int, default=4) # TODO Default
-    parser.add_argument("-sz", "--hidden_size", type=int, default=32) # TODO Default
-    parser.add_argument("-a", "--activation", type=str, default="tanh") # TODO Default
+    parser.add_argument("-m", "--momentum", type=float, default=0.9)
+    parser.add_argument("-beta", "--beta", type=float, default=0.95)
+    parser.add_argument("-beta1", "--beta1", type=float, default=0.9)
+    parser.add_argument("-beta2", "--beta2", type=float, default=0.999)
+    parser.add_argument("-eps", "--epsilon", type=float, default=1e-8)
+    parser.add_argument("-w_d", "--weight_decay", type=float, default=0)
+    parser.add_argument("-w_i", "--weight_init", type=str, default="xavier")
+    parser.add_argument("-nhl", "--num_layers", type=int, default=4)
+    parser.add_argument("-sz", "--hidden_size", type=int, default=32)
+    parser.add_argument("-a", "--activation", type=str, default="tanh")
     args = parser.parse_args()
 
     sweep_conf = {

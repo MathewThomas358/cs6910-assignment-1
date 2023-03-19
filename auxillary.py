@@ -1,5 +1,9 @@
 """
-!TODO
+CS6910 - Assignment 1
+
+Helper script which contains some helpful functions and classes
+
+@author: cs22m056
 """
 
 from typing import Callable
@@ -8,7 +12,16 @@ import numpy as np
 import wandb as wb
 
 def create_one_hot_vector(data, num_classes=None) -> np.ndarray:
-    """Creates one hot vectors"""
+    """Creates one hot vectors
+    
+    Args:
+    data: list - The list which contains the labels
+    num_classes - Number of classes
+
+    Returns:
+    np.ndarray - A 2D array which contains data.length rows, where row i contains
+    a one-hot vector corresponding to data[i]
+    """
 
     data = np.array(data, dtype='int')
     input_shape = data.shape
@@ -24,26 +37,25 @@ def create_one_hot_vector(data, num_classes=None) -> np.ndarray:
     return categorical
 
 class Functions:
-    """Class of functions"""
+    """
+    Implementations of commonly used functions and their gradients.
+    """
 
     @staticmethod
     def softmax(data: np.ndarray) -> np.ndarray:
         """Softmax function"""
-        import scipy  # TODO: Make this our model
-        return scipy.special.softmax(data)
+        data = data - np.max(data)
+        exp = np.exp(data)
+        return exp / np.sum(exp, axis = 0)
 
     class ActivationFunctions:
         """Activation Functions"""
         @staticmethod
         def sigmoid(data: np.ndarray) -> np.ndarray:
             """Sigmoid"""
-
-            # temp = data - np.max(data) # TODO: Check if required
             temp = data
             exp = np.exp(-temp)
             return 1 / (1 + exp)
-            # import scipy as sp
-            # return sp.special.expit(x)
 
         @staticmethod
         def relu(data: np.ndarray) -> np.ndarray:

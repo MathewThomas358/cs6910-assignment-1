@@ -12,7 +12,6 @@ import os
 import numpy as np
 
 from auxillary import Functions, evaluate_metrics_and_log
-from plot import plot_conf_matrix
 
 RANDOM = "random"
 XAVIER = "xavier"
@@ -716,6 +715,8 @@ class Optimizers:
         norm = 0
         update_count = 0
 
+        losses = []
+
         for j in range(self.epochs):
 
             training_loss_cr = 0
@@ -776,6 +777,8 @@ class Optimizers:
 
             print("Epoch", j, TRAINING_LOSS,
                   training_loss_cr / self.training_set_size)
+            
+            losses.append(training_loss_cr / self.training_set_size)
 
         training_accuracy = training_hits / self.training_set_size
         training_loss_cr = training_loss_cr / self.training_set_size
@@ -792,6 +795,8 @@ class Optimizers:
                 self.loss_function,
                 self.lamda, norm
             )
+        
+        return losses
 
     def __reset_grads_in_network(self, network: np.ndarray[Layer, Any]):
 
@@ -1075,8 +1080,6 @@ def main():
             count += 1
 
     print("Test", 100 * count/(val[0]).shape[0])
-
-    plot_conf_matrix(true_labels, pred_labels)
 
     # TODO
     # // ! Add evaluate metrics for all optimizers

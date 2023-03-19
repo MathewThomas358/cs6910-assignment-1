@@ -2,3 +2,4 @@ wandb/
 out.log
 __pycache__/
 .vscode/
+Reports/

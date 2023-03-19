@@ -16,7 +16,8 @@ CONF = {
     "epsilon": 1e-8,
     "beta": 0.95,
     "beta1": 0.9,
-    "beta2": 0.999
+    "beta2": 0.999,
+    "dataset": "fashion_mnist"
 }
 
 FLAG = False
@@ -26,12 +27,14 @@ def init(
         wandb_entity:str = "cs22m056",
         sweep_conf: dict = None,
         sweep_count: int = 1,
-        additional_params: Any = None, 
+        additional_params: Any = None,
         is_invoked_from_train: bool = False
 ):
-    """Init"""
+    """
+    Initialized a sweep and performs training based on the given configuration.
+    """
 
-    global FLAG
+    global FLAG #pylint: disable=W0603
     FLAG = is_invoked_from_train
 
     if sweep_conf is None:
@@ -80,8 +83,9 @@ def init(
         CONF['beta'] = additional_params.beta
         CONF['beta1'] = additional_params.beta1
         CONF["beta2"] = additional_params.beta2
-        CONF['gamma'] = additional_params.gamma
+        CONF['gamma'] = additional_params.momentum
         CONF['epsilon'] = additional_params.epsilon
+        CONF['dataset'] = additional_params.dataset
 
     sweep_id = wb.sweep(sweep_conf, project=wandb_project, entity=wandb_entity)
     wb.agent(sweep_id, sweep, wandb_entity, wandb_project, sweep_count)
@@ -119,7 +123,10 @@ def set_hidden_layer(config: dict) -> list:
     return hidden_layers
 
 def sweep():
-    """#! TODO"""
+    """
+    This function is invoked by wandb inorder to start training as per the given 
+    configuration.
+    """
 
     wb.init(config = CONF, resume = "auto")
     config = wb.config
@@ -135,7 +142,7 @@ def sweep():
 
     wb.run.name = name
 
-    train, test, val = get_data()
+    train, test, val = get_data(CONF['dataset'])
 
     if config.optimizer == "sgd":
 
@@ -313,8 +320,6 @@ def sweep():
 
         print("Accuracy on test", 100 * count/(test[0]).shape[0])
         wb.log({"test_accuracy": 100 * count/(test[0]).shape[0]})
-
-
 
 if __name__ == "__main__":
     init(sweep_count=40)

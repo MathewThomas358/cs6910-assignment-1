@@ -2,7 +2,7 @@
 
 ## Author: Mathew Thomas - CS22M056
 
-Link to `wandb` report: https://wandb.ai/cs22m056/cs6910-assignment-1/reports/CS6910-Assignment-1
+Link to `wandb` report: https://wandb.ai/cs22m056/cs6910-assignment-1/reports/CS6910-Assignment-1--VmlldzozNjM0ODcx?accessToken=8g3gpfxd803mzyyufb46m1651txu88ls5f48tppu7378x7gzg328iv9cqndg2wjw
 
 ### Training the model
 

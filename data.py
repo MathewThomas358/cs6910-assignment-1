@@ -9,9 +9,11 @@ def get_data(dataset: str = "fashion_mnist"):
     """#! TODO"""
 
     if dataset == "fashion_mnist":
+        print("Fetching Fashion MNIST dataset")
         (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
 
     if dataset == "mnist":
+        print("Fetching MNIST dataset")
         (x_train, y_train), (x_test, y_test) = mnist.load_data()
 
     x_val = x_train[54000:]
@@ -32,4 +34,11 @@ def get_data(dataset: str = "fashion_mnist"):
     y_val = create_one_hot_vector(y_val)
 
     return (x_train, y_train), (x_test, y_test), (x_val, y_val)
-    
+
+def get_fashion_mnist_original():
+    """
+    Returns the fashion-mnist training samples and labels in the original format.
+    """
+
+    (x_train, y_train), _ = fashion_mnist.load_data()
+    return x_train, y_train
