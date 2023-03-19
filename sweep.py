@@ -2,16 +2,28 @@
     Sweep
 """
 
+from typing import Any
+
 import wandb as wb
 
 from network import NeuralNetwork, Optimizers
 from auxillary import map_functions, Functions
 from data import get_data
 
+CONF = {
+    "gamma": 0.9,
+    "epsilon": 1e-8,
+    "beta": 0.95,
+    "beta1": 0.9,
+    "beta2": 0.999
+}
+
 def init(
         wandb_project:str = "cs6910-assignment-1",
         wandb_entity:str = "cs22m056",
-        sweep_conf: dict = None
+        sweep_conf: dict = None,
+        sweep_count: int = 1,
+        additional_params: Any = None
 ):
     """Init"""
 
@@ -34,20 +46,8 @@ def init(
                     'values': [3, 4, 5]
                 },
                 'hidden_size_1': {
-                    'values': [512, 64, 128, 256]
+                    'values': [64, 128, 256, 32]
                 },
-                # 'hidden_size_2': {
-                #     'values': [32, 64, 128, 256]
-                # },
-                # 'hidden_size_3': {
-                #     'values': [32, 64, 128, 256]
-                # },
-                # 'hidden_size_4': {
-                #     'values': [32, 64, 128, 256]
-                # },
-                # 'hidden_size_5': {
-                #     'values': [32, 64, 128, 256]
-                # },
                 'l2_regpara': {
                     'values': [0, 0.5, 0.05, 0.005, 5e-4]
                 },
@@ -69,10 +69,15 @@ def init(
             }
         }
 
-    sweep_id = wb.sweep(sweep_conf, project=wandb_project, entity=wandb_entity)
-    wb.agent(sweep_id, sweep, "cs22m056", "cs6910-assignment-1", 40)
+    if additional_params is not None:
+        CONF['beta'] = additional_params.beta
+        CONF['beta1'] = additional_params.beta1
+        CONF["beta2"] = additional_params.beta2
+        CONF['gamma'] = additional_params.gamma
+        CONF['epsilon'] = additional_params.epsilon
 
-    sweep()
+    sweep_id = wb.sweep(sweep_conf, project=wandb_project, entity=wandb_entity)
+    wb.agent(sweep_id, sweep, wandb_entity, wandb_project, sweep_count)
 
 def set_hidden_layer(config: dict) -> list:
     """Sets the hidden layers according to given config"""
@@ -109,8 +114,7 @@ def set_hidden_layer(config: dict) -> list:
 def sweep():
     """#! TODO"""
 
-    conf = {} #? Is this supposed to be empty?
-    wb.init(config = conf, resume = "auto")
+    wb.init(config = CONF, resume = "auto")
     config = wb.config
     name = (
         "op_" + str(config.optimizer)[:3] + 
@@ -124,7 +128,7 @@ def sweep():
 
     wb.run.name = name
 
-    train, _, val = get_data()
+    train, train, val = get_data()
 
     if config.optimizer == "sgd":
 
@@ -140,7 +144,7 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True
-            #,training_set_size = 8196 #TEST
+            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -166,8 +170,8 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
-            gamma = 0.9
-            #,training_set_size = 8196 #TEST
+            gamma = config.gamma
+            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -179,7 +183,7 @@ def sweep():
             weight_init = config.weight_init
         )
 
-    if config.optimizer == "nesterov":
+    if config.optimizer == "nesterov" or config.optimizer == "nag":
 
         opt = Optimizers(
             map_functions(config.activation),
@@ -193,8 +197,8 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
-            gamma = 0.9
-            #,training_set_size = 8196 #TEST
+            gamma = config.gamma
+            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -220,9 +224,9 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
-            epsilon = 1e-8,
-            beta = 0.95
-            #,training_set_size = 8196 #TEST
+            epsilon = config.epsilon,
+            beta = config.beta
+            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -248,10 +252,10 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
-            beta = 0.9,
-            beta2 = 0.999,
-            epsilon = 1e-8
-            #,training_set_size = 8196 #TEST
+            beta = config.beta1,
+            beta2 = config.beta2,
+            epsilon = config.epsilon
+            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -277,10 +281,10 @@ def sweep():
             y_val = val[1],
             l2_regpara = config.l2_regpara,
             is_sweeping = True,
-            beta = 0.9,
-            beta2 = 0.999,
-            epsilon = 1e-8
-            #,training_set_size = 8196 #TEST
+            beta = config.beta1,
+            beta2 = config.beta2,
+            epsilon = config.epsilon
+            ,training_set_size = 512 #TEST
         )
 
         nn = NeuralNetwork( #pylint: disable=C0103
@@ -294,3 +298,7 @@ def sweep():
 
     nn.train()
 
+
+if __name__ == "__main__":
+    init(sweep_count=40)
+    

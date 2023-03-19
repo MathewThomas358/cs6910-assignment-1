@@ -10,9 +10,9 @@ import sys
 import os
 
 import numpy as np
-import wandb as wb
 
 from auxillary import Functions, evaluate_metrics_and_log
+from plot import plot_conf_matrix
 
 RANDOM = "random"
 XAVIER = "xavier"
@@ -993,54 +993,90 @@ class NeuralNetwork:
         return y_pred.flatten()
 
 
+def map_optimizers(name: str, optimizer: Optimizers):
+    
+    if name == "sgd":
+        return optimizer.gradient_descent
+    
+    if name == "momentum":
+        return optimizer.momentum_gradient_descent
+    
+    if name == "nag":
+        return optimizer.nesterov_gradient_descent
+    
+    if name == "rmsprop":
+        return optimizer.rmsprop
+    
+    if name == "adam":
+        return optimizer.adam
+    
+    if name == "nadam":
+        return optimizer.nadam
+
+
 def main():
     """Main"""
 
     from data import get_data
-    train, _, val = get_data()
+    train, test, val = get_data()
 
     optimizer = Optimizers(
         Functions.ActivationFunctions.tanh,
         Functions.LossFunctions.cross_entropy,
         Functions.softmax,
-        10, 1e-5, train[0], train[1], 128,
+        15, 1e-3, train[0], train[1], 128,
         x_val=val[0], y_val=val[1],
-        training_set_size=10240,
         is_sweeping=False,
-        l2_regpara=0.05,
+        l2_regpara=0,
         epsilon=1e-8,
         beta=0.9,
         beta2=0.999
     )
 
     nn = NeuralNetwork(  # pylint: disable=C0103
-        28 * 28, [256, 128, 64], 10,
-        True, 5,
-        optimizer.nadam,
+        28 * 28, [64], 10,
+        False, 4,
+        optimizer.adam,
         optimizer
     )
 
     nn.train()
 
     count = 0
-    temp = 10
 
     for i in range(val[0].shape[0]):
 
         y_pred = nn.predict((val[0])[i, :])
         final = np.zeros_like(y_pred)
         final[np.argmax(y_pred)] = 1
-        if temp > 0:
-            # tq2=" ".join([f"{q:1.3f}" for q in x_val[i,:]])
-            t_q = " ".join([f"{q:1.3f}" for q in y_pred])
-            print(f"{temp}: {t_q} - {(val[1])[i,:]}")
-            temp -= 1
 
-        # print("Pred", y_pred)
         if ((val[1])[i, :] == final).all():
             count += 1
 
-    print(100 * count/(val[0]).shape[0])
+    print("Validation", 100 * count/(val[0]).shape[0])
+
+    val = test
+
+    count = 0
+
+    true_labels = []
+    pred_labels = []
+
+    for i in range(val[0].shape[0]):
+
+        y_pred = nn.predict((val[0])[i, :])
+        final = np.zeros_like(y_pred)
+        final[np.argmax(y_pred)] = 1
+
+        true_labels.append(np.argmax((val[1])[i, :]))
+        pred_labels.append(np.argmax(y_pred))
+
+        if ((val[1])[i, :] == final).all():
+            count += 1
+
+    print("Test", 100 * count/(val[0]).shape[0])
+
+    plot_conf_matrix(true_labels, pred_labels)
 
     # TODO
     # // ! Add evaluate metrics for all optimizers

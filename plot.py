@@ -5,12 +5,11 @@ Implementation of Feedforward Neural Network with Backpropagation
 @author: cs22m056
 '''
 
+import matplotlib.pyplot as plt
 import numpy as np
 import wandb as wb
 
 from data import get_data
-
-wb.init(project="cs6910-assignment-1")
 
 class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress',
                'Coat', 'Sandal', 'Shirt', 'Sneaker', 'Bag', 'Ankle boot']
@@ -18,6 +17,7 @@ class_names = ['T-shirt/top', 'Trouser', 'Pullover', 'Dress',
 def plot_images():
     """Q1. Function to plot sample images from each class """
 
+    wb.init(project="cs6910-assignment-1")
     train, _, _ = get_data()
 
     x_train = train[0]
@@ -39,8 +39,69 @@ def plot_images():
             np.reshape(img, (-1, 28)), caption=caption
         ) for img, caption in zip(images, labels)
     ]})
+    wb.finish()
+
+def plot_confusion_matrix(
+        conf_matrix: np.ndarray,
+        classes: list = None,
+        cmap=plt.cm.BuPu
+):
+    """
+    PLT
+    """
+    wb.init(project="cs6910-assignment-1")
+
+    if classes is None:
+        classes = class_names
+
+    plt.imshow(conf_matrix, interpolation='nearest', cmap=cmap)
+    plt.title('Confusion Matrix', fontfamily = "sans-serif", fontsize = "large", fontstretch = "condensed")
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+    plt.box(False)
+
+    thresh = conf_matrix.max() / 2.
+    for i, j in np.ndindex(conf_matrix.shape):
+        plt.text(j, i, int(conf_matrix[i, j]),
+                 horizontalalignment="center",
+                 color="white" if conf_matrix[i, j] > thresh else "black",
+                 fontfamily="fantasy", fontweight = "demibold"
+                )
+
+    plt.tight_layout()
+    plt.ylabel('True label', fontfamily = "monospace", fontstyle = "oblique")
+    plt.xlabel('Predicted label', fontfamily = "monospace", fontstyle = "oblique")
+    # plt.show()
+
+    wb.log({"Confusion Matrix": plt})
+    wb.finish()
+
+
+def confusion_matrix(true_labels, predicted_labels):
+    """
+    CM
+    """
+
+    num_classes = len(np.unique(true_labels))
+    confusion_mat = np.zeros((num_classes, num_classes))
+
+    for i, j in zip(true_labels, predicted_labels):
+        confusion_mat[int(i) - 1, int(j) - 1] += 1
+
+    return confusion_mat
+
+def plot_conf_matrix(true: list, pred: list):
+    """"""
+
+    conf_matrix = confusion_matrix(true, pred)
+    plot_confusion_matrix(conf_matrix, class_names)
+
 
 if __name__ == "__main__":
 
-    plot_images()
-    wb.finish()
+    true = [1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,1,2,3,4,5,6,4,5,6,4,5,6,4,5,6,4,5,6]
+    pred = [1,1,3,2,2,3,3,2,3,1,2,1,1,1,3,1,2,2,4,3,6,1,5,6,5,5,5,4,2,6,4,5,1]
+
+    cm = confusion_matrix(true, pred)
+    plot_confusion_matrix(cm, ["A", "B", "C"])

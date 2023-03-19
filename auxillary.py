@@ -7,8 +7,6 @@ from typing import Callable
 import numpy as np
 import wandb as wb
 
-from network import Optimizers
-
 def create_one_hot_vector(data, num_classes=None) -> np.ndarray:
     """Creates one hot vectors"""
 
@@ -131,28 +129,6 @@ def map_functions(name: str) -> Callable:
 
     if name == "cross_entropy":
         return Functions.LossFunctions.cross_entropy
-
-def map_optimizer(name: str, optimizer_object: Optimizers) -> Callable:
-    """Map opti"""
-
-    if name == "sgd":
-        return optimizer_object.gradient_descent
-
-    if name == "momentum":
-        return optimizer_object.momentum_gradient_descent
-
-    if name == "nag":
-        return optimizer_object.nesterov_gradient_descent
-
-    if name == "rmsprop":
-        return optimizer_object.rmsprop
-    
-    if name == "adam":
-        return optimizer_object.adam
-    
-    if name == "nadam":
-        return optimizer_object.nadam
-
 
 def evaluate_metrics_and_log(
     training_loss: float,
